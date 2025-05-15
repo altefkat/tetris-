@@ -19,264 +19,297 @@
             margin: 20px auto;
             background-color: rgba(0, 0, 0, 0.7);
         }
-        #toggleMusic {
-            margin: 12px auto 20px auto;
-            font-size: 1rem;
-            padding: 6px 20px;
-            border-radius: 7px;
-            border: none;
-            background: #220044;
-            color: #ddd;
-            cursor: pointer;
-            box-shadow: 0 0 10px #6A0DAD;
-            transition: background 0.2s;
-        }
-        #toggleMusic:hover {
-            background: #6A0DAD;
-            color: #fff;
+        #pseudoInput {
+            margin: 8px;
+            padding: 6px;
+            border-radius: 6px;
+            border: 1px solid #6A0DAD;
         }
     </style>
 </head>
 <body>
     <h1>Tetris pour les bg</h1>
-    <audio id="bgMusic" src="./music.mp3" loop></audio>
-    <button id="toggleMusic">🔊 Activer la musique</button>
+    <audio id="bgMusic" src="./music.mp3" autoplay loop></audio>
     <div>
-        <span id="score">Score: 0</span> | <span id="topScore">Meilleur: 0</span> | <span id="lines">Lignes: 0</span> | <span id="level">Niveau: 1</span> | <span id="timer">Temps: 0s</span>
+        <input id="pseudoInput" placeholder="Ton pseudo (top score)" maxlength="16" />
+    </div>
+    <div>
+        <span id="score">Score: 0</span> | 
+        <span id="topScore">Meilleur (local): 0</span> | 
+        <span id="lines">Lignes: 0</span> | 
+        <span id="level">Niveau: 1</span> | 
+        <span id="timer">Temps: 0s</span>
+    </div>
+    <div style="margin-top:10px">
+        <span id="worldTopScore">🏆 Top Score Mondial: ...</span>
     </div>
     <button onclick="restartGame()">Redémarrer</button>
     <canvas id="tetris" width="340" height="400"></canvas>
 
-    <script>
-        // Gestion musique play/pause
+<script>
+    // CONFIGURATION JSONBIN.IO
+    const JSONBIN_URL = "https://api.jsonbin.io/v3/b/6825bd578561e97a5014584f";
+    const API_KEY = "$2a$10$QaIl/jNblmE41X0hexsVMeqBDs68V0Hpu9nSNXw7BYEcYiVWEHd4K"; // <---- Mets ta clé ici
+
+    // --- Audio auto-play fix pour Chrome ---
+    document.addEventListener('click', () => {
         const audio = document.getElementById('bgMusic');
-        const toggleMusicBtn = document.getElementById('toggleMusic');
-        // Lancer la musique au premier clic user si nécessaire
-        document.addEventListener('click', () => {
-            if (audio.paused) {
-                audio.play().catch(e => {});
+        if (audio.paused) audio.play().catch(() => {});
+    }, { once: true });
+
+    // --- Score Mondial Variables ---
+    let worldTopScore = 0;
+    let worldTopPseudo = "inconnu";
+
+    async function fetchWorldTopScore() {
+        try {
+            const resp = await fetch(JSONBIN_URL, {
+                headers: { "X-Master-Key": API_KEY }
+            });
+            const data = await resp.json();
+            worldTopScore = data.record.topScore || 0;
+            worldTopPseudo = data.record.pseudo || "inconnu";
+            document.getElementById('worldTopScore').textContent = `🏆 Top Score Mondial: ${worldTopScore} (${worldTopPseudo})`;
+        } catch {
+            document.getElementById('worldTopScore').textContent = "🏆 Top Score Mondial: ... (erreur)";
+        }
+    }
+
+    async function setWorldTopScore(score, pseudo) {
+        try {
+            await fetch(JSONBIN_URL, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Master-Key": API_KEY
+                },
+                body: JSON.stringify({ topScore: score, pseudo: pseudo })
+            });
+            await fetchWorldTopScore();
+        } catch {
+            // fail silently
+        }
+    }
+
+    // --- TETRIS CODE ---
+    const canvas = document.getElementById('tetris');
+    const context = canvas.getContext('2d');
+    context.scale(20, 20);
+
+    const arena = createMatrix(17, 20);
+    const player = { pos: { x: 5, y: 0 }, matrix: null, score: 0, lines: 0, level: 1 };
+    const scoreDisplay = document.getElementById('score');
+    const topScoreDisplay = document.getElementById('topScore');
+    const linesDisplay = document.getElementById('lines');
+    const levelDisplay = document.getElementById('level');
+    const timerDisplay = document.getElementById('timer');
+    const pseudoInput = document.getElementById('pseudoInput');
+
+    let topScore = parseInt(localStorage.getItem('topScore')) || 0;
+    topScoreDisplay.textContent = `Meilleur (local): ${topScore}`;
+
+    let startTime = Date.now();
+    let dropInterval = 600;
+
+    let pieceBag = [];
+    function randomPieceType() {
+        if (pieceBag.length === 0) {
+            pieceBag = 'TOLJISZ'.split('');
+            for (let i = pieceBag.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [pieceBag[i], pieceBag[j]] = [pieceBag[j], pieceBag[i]];
             }
-        }, { once: true });
+        }
+        return pieceBag.pop();
+    }
 
-        toggleMusicBtn.addEventListener('click', () => {
-            if (audio.paused) {
-                audio.play().then(() => {
-                    toggleMusicBtn.textContent = '🔇 Couper la musique';
-                }).catch(e => console.log('Erreur de lecture :', e));
-            } else {
-                audio.pause();
-                toggleMusicBtn.textContent = '🔊 Activer la musique';
+    function restartGame() {
+        arena.forEach(row => row.fill(0));
+        player.score = 0;
+        player.lines = 0;
+        player.level = 1;
+        dropInterval = 600;
+        updateMusicSpeed();
+        playerReset();
+        updateScore();
+        startTime = Date.now();
+    }
+
+    function updateMusicSpeed() {
+        const audio = document.getElementById('bgMusic');
+        audio.playbackRate = 1 + (player.level - 1) * 0.1;
+    }
+
+    function updateTimer() {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        timerDisplay.textContent = `Temps: ${elapsed}s`;
+    }
+    setInterval(updateTimer, 1000);
+
+    function createMatrix(w, h) {
+        const matrix = [];
+        while (h--) matrix.push(new Array(w).fill(0));
+        return matrix;
+    }
+
+    function createPiece(type) {
+        switch (type) {
+            case 'T': return [[0,0,0],[1,1,1],[0,1,0]];
+            case 'O': return [[2,2],[2,2]];
+            case 'L': return [[0,3,0],[0,3,0],[0,3,3]];
+            case 'J': return [[0,4,0],[0,4,0],[4,4,0]];
+            case 'I': return [[0,5,0,0],[0,5,0,0],[0,5,0,0],[0,5,0,0]];
+            case 'S': return [[0,6,6],[6,6,0],[0,0,0]];
+            case 'Z': return [[7,7,0],[0,7,7],[0,0,0]];
+        }
+    }
+
+    function drawMatrix(matrix, offset) {
+        const colors = [null, '#4B0082', '#6A0DAD', '#7B68EE', '#8A2BE2', '#00BFFF', '#1E90FF', '#4169E1'];
+        matrix.forEach((row, y) => row.forEach((value, x) => {
+            if (value !== 0) {
+                context.fillStyle = colors[value];
+                context.fillRect(x + offset.x, y + offset.y, 1, 1);
             }
-        });
+        }));
+    }
 
-        // --------- TETRIS CODE ---------
-        const canvas = document.getElementById('tetris');
-        const context = canvas.getContext('2d');
-        context.scale(20, 20);
+    function merge(arena, player) {
+        player.matrix.forEach((row, y) => row.forEach((value, x) => {
+            if (value !== 0) arena[y + player.pos.y][x + player.pos.x] = value;
+        }));
+    }
 
-        const arena = createMatrix(17, 20);
-        const player = { pos: { x: 5, y: 0 }, matrix: null, score: 0, lines: 0, level: 1 };
-        const scoreDisplay = document.getElementById('score');
-        const topScoreDisplay = document.getElementById('topScore');
-        const linesDisplay = document.getElementById('lines');
-        const levelDisplay = document.getElementById('level');
-        const timerDisplay = document.getElementById('timer');
-
-        let topScore = parseInt(localStorage.getItem('topScore')) || 0;
-        topScoreDisplay.textContent = `Meilleur: ${topScore}`;
-
-        let startTime = Date.now();
-        let dropInterval = 600;
-
-        let pieceBag = [];
-        function randomPieceType() {
-            if (pieceBag.length === 0) {
-                pieceBag = 'TOLJISZ'.split('');
-                for (let i = pieceBag.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [pieceBag[i], pieceBag[j]] = [pieceBag[j], pieceBag[i]];
+    function collide(arena, player) {
+        const m = player.matrix;
+        const o = player.pos;
+        for (let y = 0; y < m.length; ++y) {
+            for (let x = 0; x < m[y].length; ++x) {
+                if (m[y][x] !== 0) {
+                    if (o.x + x < 0 || o.x + x >= arena[0].length || o.y + y >= arena.length) {
+                        return true;
+                    }
+                    if (arena[o.y + y] && arena[o.y + y][o.x + x] !== 0) {
+                        return true;
+                    }
                 }
             }
-            return pieceBag.pop();
         }
+        return false;
+    }
 
-        function restartGame() {
+    function arenaSweep() {
+        let rowCount = 1;
+        outer: for (let y = arena.length - 1; y >= 0; y--) {
+            for (let x = 0; x < arena[y].length; x++) {
+                if (arena[y][x] === 0) continue outer;
+            }
+            const row = arena.splice(y, 1)[0].fill(0);
+            arena.unshift(row);
+            y++;
+            player.score += rowCount * 100;
+            player.lines++;
+            if (player.lines % 6 === 0) {
+                player.level++;
+                dropInterval = Math.max(50, dropInterval - 50);
+                updateMusicSpeed();
+            }
+            rowCount *= 2;
+        }
+    }
+
+    function playerDrop() {
+        player.pos.y++;
+        if (collide(arena, player)) {
+            player.pos.y--;
+            merge(arena, player);
+            arenaSweep();
+            // Meilleur score local
+            if (player.score > topScore) {
+                topScore = player.score;
+                localStorage.setItem('topScore', topScore);
+            }
+            // Meilleur score mondial
+            if (player.score > worldTopScore) {
+                const pseudo = pseudoInput.value.trim() || "inconnu";
+                setWorldTopScore(player.score, pseudo);
+            }
+            updateScore();
+            playerReset();
+        }
+        dropCounter = 0;
+    }
+
+    function playerReset() {
+        player.matrix = createPiece(randomPieceType());
+        player.pos.y = 0;
+        player.pos.x = (arena[0].length / 2 | 0) - (player.matrix[0].length / 2 | 0);
+        if (collide(arena, player)) {
             arena.forEach(row => row.fill(0));
             player.score = 0;
             player.lines = 0;
             player.level = 1;
             dropInterval = 600;
             updateMusicSpeed();
-            playerReset();
-            updateScore();
-            startTime = Date.now();
         }
+    }
 
-        function updateMusicSpeed() {
-            audio.playbackRate = 1 + (player.level - 1) * 0.1;
-        }
+    function updateScore() {
+        scoreDisplay.textContent = `Score: ${player.score}`;
+        topScoreDisplay.textContent = `Meilleur (local): ${topScore}`;
+        linesDisplay.textContent = `Lignes: ${player.lines}`;
+        levelDisplay.textContent = `Niveau: ${player.level}`;
+    }
 
-        function updateTimer() {
-            const elapsed = Math.floor((Date.now() - startTime) / 1000);
-            timerDisplay.textContent = `Temps: ${elapsed}s`;
-        }
-        setInterval(updateTimer, 1000);
+    function rotate(matrix, dir = 1) {
+        for (let y = 0; y < matrix.length; ++y)
+            for (let x = 0; x < y; ++x)
+                [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
+        dir > 0 ? matrix.forEach(row => row.reverse()) : matrix.reverse();
+    }
 
-        function createMatrix(w, h) {
-            const matrix = [];
-            while (h--) matrix.push(new Array(w).fill(0));
-            return matrix;
-        }
-
-        function createPiece(type) {
-            switch (type) {
-                case 'T': return [[0,0,0],[1,1,1],[0,1,0]];
-                case 'O': return [[2,2],[2,2]];
-                case 'L': return [[0,3,0],[0,3,0],[0,3,3]];
-                case 'J': return [[0,4,0],[0,4,0],[4,4,0]];
-                case 'I': return [[0,5,0,0],[0,5,0,0],[0,5,0,0],[0,5,0,0]];
-                case 'S': return [[0,6,6],[6,6,0],[0,0,0]];
-                case 'Z': return [[7,7,0],[0,7,7],[0,0,0]];
-            }
-        }
-
-        function drawMatrix(matrix, offset) {
-            const colors = [null, '#4B0082', '#6A0DAD', '#7B68EE', '#8A2BE2', '#00BFFF', '#1E90FF', '#4169E1'];
-            matrix.forEach((row, y) => row.forEach((value, x) => {
-                if (value !== 0) {
-                    context.fillStyle = colors[value];
-                    context.fillRect(x + offset.x, y + offset.y, 1, 1);
-                }
-            }));
-        }
-
-        function merge(arena, player) {
-            player.matrix.forEach((row, y) => row.forEach((value, x) => {
-                if (value !== 0) arena[y + player.pos.y][x + player.pos.x] = value;
-            }));
-        }
-
-        function collide(arena, player) {
-            const m = player.matrix;
-            const o = player.pos;
-            for (let y = 0; y < m.length; ++y) {
-                for (let x = 0; x < m[y].length; ++x) {
-                    if (m[y][x] !== 0) {
-                        if (o.x + x < 0 || o.x + x >= arena[0].length || o.y + y >= arena.length) {
-                            return true;
-                        }
-                        if (arena[o.y + y] && arena[o.y + y][o.x + x] !== 0) {
-                            return true;
-                        }
-                    }
-                }
-            }
-            return false;
-        }
-
-        function arenaSweep() {
-            let rowCount = 1;
-            outer: for (let y = arena.length - 1; y >= 0; y--) {
-                for (let x = 0; x < arena[y].length; x++) {
-                    if (arena[y][x] === 0) continue outer;
-                }
-                const row = arena.splice(y, 1)[0].fill(0);
-                arena.unshift(row);
-                y++;
-                player.score += rowCount * 100;
-                player.lines++;
-                if (player.lines % 6 === 0) {
-                    player.level++;
-                    dropInterval = Math.max(50, dropInterval - 50);
-                    updateMusicSpeed();
-                }
-                rowCount *= 2;
-            }
-        }
-
-        function playerDrop() {
-            player.pos.y++;
+    document.addEventListener('keydown', event => {
+        if (event.key === 'ArrowLeft') {
+            player.pos.x--;
+            if (collide(arena, player)) player.pos.x++;
+        } else if (event.key === 'ArrowRight') {
+            player.pos.x++;
+            if (collide(arena, player)) player.pos.x--;
+        } else if (event.key === 'ArrowDown') {
+            playerDrop();
+        } else if (event.key === ' ') {
+            rotate(player.matrix);
             if (collide(arena, player)) {
-                player.pos.y--;
-                merge(arena, player);
-                arenaSweep();
-                if (player.score > topScore) {
-                    topScore = player.score;
-                    localStorage.setItem('topScore', topScore);
-                }
-                updateScore();
-                playerReset();
-            }
-            dropCounter = 0;
-        }
-
-        function playerReset() {
-            player.matrix = createPiece(randomPieceType());
-            player.pos.y = 0;
-            player.pos.x = (arena[0].length / 2 | 0) - (player.matrix[0].length / 2 | 0);
-            if (collide(arena, player)) {
-                arena.forEach(row => row.fill(0));
-                player.score = 0;
-                player.lines = 0;
-                player.level = 1;
-                dropInterval = 600;
-                updateMusicSpeed();
-            }
-        }
-
-        function updateScore() {
-            scoreDisplay.textContent = `Score: ${player.score}`;
-            topScoreDisplay.textContent = `Meilleur: ${topScore}`;
-            linesDisplay.textContent = `Lignes: ${player.lines}`;
-            levelDisplay.textContent = `Niveau: ${player.level}`;
-        }
-
-        function rotate(matrix, dir = 1) {
-            for (let y = 0; y < matrix.length; ++y)
-                for (let x = 0; x < y; ++x)
-                    [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
-            dir > 0 ? matrix.forEach(row => row.reverse()) : matrix.reverse();
-        }
-
-        document.addEventListener('keydown', event => {
-            if (event.key === 'ArrowLeft') {
-                player.pos.x--;
-                if (collide(arena, player)) player.pos.x++;
-            } else if (event.key === 'ArrowRight') {
                 player.pos.x++;
-                if (collide(arena, player)) player.pos.x--;
-            } else if (event.key === 'ArrowDown') {
-                playerDrop();
-            } else if (event.key === ' ') {
-                rotate(player.matrix);
-                if (collide(arena, player)) {
-                    player.pos.x++;
-                    if (collide(arena, player)) player.pos.x -= 2;
-                    if (collide(arena, player)) rotate(player.matrix, -1);
-                }
+                if (collide(arena, player)) player.pos.x -= 2;
+                if (collide(arena, player)) rotate(player.matrix, -1);
             }
-        });
-
-        let dropCounter = 0, lastTime = 0;
-
-        function update(time = 0) {
-            const deltaTime = time - lastTime;
-            lastTime = time;
-            dropCounter += deltaTime;
-            if (dropCounter > dropInterval) playerDrop();
-
-            context.fillStyle = '#111122';
-            context.fillRect(0, 0, canvas.width, canvas.height);
-
-            drawMatrix(arena, { x: 0, y: 0 });
-            drawMatrix(player.matrix, player.pos);
-
-            requestAnimationFrame(update);
         }
+    });
 
-        playerReset();
-        updateScore();
-        update();
-    </script>
+    let dropCounter = 0, lastTime = 0;
+
+    function update(time = 0) {
+        const deltaTime = time - lastTime;
+        lastTime = time;
+        dropCounter += deltaTime;
+        if (dropCounter > dropInterval) playerDrop();
+
+        context.fillStyle = '#111122';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        drawMatrix(arena, { x: 0, y: 0 });
+        drawMatrix(player.matrix, player.pos);
+
+        requestAnimationFrame(update);
+    }
+
+    // --- Start everything ---
+    fetchWorldTopScore();
+    playerReset();
+    updateScore();
+    update();
+
+</script>
 </body>
 </html>
