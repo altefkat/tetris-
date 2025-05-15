@@ -25,13 +25,22 @@
 <body>
     <h1>Tetris pour les bg</h1>
     <audio id="bgMusic" src="./music.mp3" autoplay loop></audio>
-    <div>
-        <span id="score">Score: 0</span> | <span id="topScore">Meilleur: 0</span> | <span id="lines">Lignes: 0</span> | <span id="level">Niveau: 1</span> | <span id="timer">Temps: 0s</span>
-    </div>
-    <button onclick="restartGame()">Redémarrer</button>
-    <canvas id="tetris" width="340" height="400"></canvas>
+    <script>
+        document.addEventListener('click', () => {
+            const audio = document.getElementById('bgMusic');
+            if (audio.paused) {
+                audio.play().catch(e => console.log(e));
+            }
+        }, { once: true });
+    </script>
 
 ```
+<div>
+    <span id="score">Score: 0</span> | <span id="topScore">Meilleur: 0</span> | <span id="lines">Lignes: 0</span> | <span id="level">Niveau: 1</span> | <span id="timer">Temps: 0s</span>
+</div>
+<button onclick="restartGame()">Redémarrer</button>
+<canvas id="tetris" width="340" height="400"></canvas>
+
 <script>
     const canvas = document.getElementById('tetris');
     const context = canvas.getContext('2d');
