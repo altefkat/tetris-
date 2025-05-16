@@ -28,6 +28,30 @@
             height: auto;
             touch-action: none;
         }
+        #pauseBar {
+            margin: 12px auto 8px auto;
+            width: 160px;
+            padding: 7px 0;
+            border-radius: 10px;
+            background: #35006a;
+            color: #fff;
+            font-size: 19px;
+            letter-spacing: 1px;
+            box-shadow: 0 0 8px #6A0DAD55;
+            cursor: pointer;
+            display: block;
+            transition: background 0.2s;
+            user-select: none;
+            font-weight: bold;
+        }
+        #pauseBar.paused {
+            animation: blink 1s step-end infinite;
+            background: #a31481;
+            color: #ffe;
+        }
+        @keyframes blink {
+            50% { background: #6A0DAD; color: #fff; }
+        }
         #leaderboard {
             margin: 10px auto 18px auto;
             width: 98%;
@@ -76,12 +100,103 @@
             user-select: none;
             touch-action: manipulation;
         }
+        #pauseBtn { display: none; }
         @media (max-width: 600px) {
             #container { max-width: 100vw; }
             canvas { max-width: 98vw; }
-            #controls { display: block; }
+            #controls, #pauseBtn { display: block; }
             #leaderboard, #userBar { font-size: 13px; }
             .ctrl-btn { padding: 12px 13px; font-size: 19px; }
+        }
+        #gameOverModal {
+            position: fixed;
+            left: 0; right: 0; top: 0; bottom: 0;
+            background: rgba(8,0,20,0.88);
+            z-index: 999;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        #gameOverBox {
+            background: #15012a;
+            border: 4px solid #6A0DAD;
+            border-radius: 16px;
+            box-shadow: 0 0 30px #8a2be2, 0 0 90px #000 inset;
+            padding: 36px 30px 30px 30px;
+            min-width: 260px;
+            min-height: 120px;
+            animation: goBoxPop 0.4s;
+        }
+        @keyframes goBoxPop {
+            0% { transform: scale(0.4); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        #goTitle {
+            font-size: 2.5rem;
+            color: #ec68f4;
+            margin-bottom: 8px;
+            letter-spacing: 2px;
+            animation: neonFlicker 1.2s infinite alternate;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        @keyframes neonFlicker {
+            0% { text-shadow: 0 0 7px #ff9fff, 0 0 20px #fff, 0 0 40px #a050ec; }
+            40% { text-shadow: 0 0 8px #ee2cff, 0 0 28px #fff, 0 0 32px #ff68ec; }
+            100% { text-shadow: 0 0 10px #ff9fff, 0 0 36px #fff, 0 0 52px #a050ec; }
+        }
+        #goScore {
+            font-size: 1.3rem;
+            margin: 10px 0 18px 0;
+            color: #c2b6ff;
+        }
+        #goRestart {
+            margin-top: 8px;
+            padding: 11px 32px;
+            font-size: 1.25rem;
+            border-radius: 10px;
+            border: none;
+            background: linear-gradient(90deg, #6A0DAD 40%, #8A2BE2 100%);
+            color: #fff;
+            font-weight: bold;
+            box-shadow: 0 0 18px #6000ac77;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        #goRestart:hover {
+            background: linear-gradient(90deg, #8A2BE2 0%, #6A0DAD 100%);
+            color: #fff;
+        }
+        /* --- LEVEL UP ANIMATION --- */
+        #levelUpOverlay {
+            display: none;
+            position: fixed;
+            left: 0; right: 0; top: 0; bottom: 0;
+            z-index: 998;
+            pointer-events: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            background: none;
+        }
+        #levelUpText {
+            font-size: 3rem;
+            color: #00ffff;
+            font-family: 'Orbitron', 'Arial', monospace;
+            text-shadow: 0 0 25px #fff, 0 0 60px #18a5fa, 0 0 18px #6A0DAD;
+            padding: 25px 36px;
+            border-radius: 15px;
+            background: rgba(25, 20, 80, 0.23);
+            border: 3px solid #0ff;
+            opacity: 0;
+            transform: scale(0.7);
+            animation: levelup-pop 1.2s cubic-bezier(.2,1.4,.53,1.01) forwards;
+        }
+        @keyframes levelup-pop {
+            0% { opacity: 0; transform: scale(0.5);}
+            30% { opacity: 1; transform: scale(1.15);}
+            70% { opacity: 1; transform: scale(1);}
+            100% { opacity: 0; transform: scale(0.5);}
         }
     </style>
 </head>
@@ -97,11 +212,13 @@
         <span id="timer">Temps: 0s</span>
     </div>
     <button onclick="restartGame()">Redémarrer</button>
+    <div id="pauseBar" onclick="togglePause()">⏸ Pause</div>
     <div id="controls">
         <button class="ctrl-btn" id="btnLeft">◀️</button>
         <button class="ctrl-btn" id="btnRotate">⟳</button>
         <button class="ctrl-btn" id="btnRight">▶️</button>
         <button class="ctrl-btn" id="btnDown">⬇️</button>
+        <button class="ctrl-btn" id="pauseBtn" onclick="togglePause()">⏸</button>
     </div>
     <canvas id="tetris" width="340" height="400"></canvas>
     <div id="leaderboard">
@@ -112,8 +229,21 @@
         </table>
     </div>
 </div>
+
+<!-- GAME OVER MODAL -->
+<div id="gameOverModal">
+    <div id="gameOverBox">
+        <div id="goTitle">GAME OVER</div>
+        <div id="goScore"></div>
+        <button id="goRestart" onclick="closeGameOver()">Relancer</button>
+    </div>
+</div>
+<!-- LEVEL UP OVERLAY -->
+<div id="levelUpOverlay">
+    <div id="levelUpText"></div>
+</div>
 <script>
-    // JSONBIN config
+    // === LEADERBOARD JSONBIN ===
     const API_KEY = "$2a$10$QaIl/jNblmE41X0hexsVMeqBDs68V0Hpu9nSNXw7BYEcYiVWEHd4K";
     const BIN_ID = "6825bd578561e97a5014584f";
     const BIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
@@ -175,7 +305,16 @@
     // === TETRIS ===
     const canvas = document.getElementById('tetris');
     const context = canvas.getContext('2d');
-    context.scale(20, 20);
+    function resizeCanvas() {
+        let displayWidth = Math.min(canvas.parentNode.offsetWidth, 410);
+        let ratio = window.devicePixelRatio || 1;
+        canvas.width = Math.round(displayWidth * ratio);
+        canvas.height = Math.round(400 * (displayWidth / 340) * ratio);
+        context.setTransform(1, 0, 0, 1, 0, 0);
+        context.scale((canvas.width / 17) / 20, (canvas.height / 20) / 20);
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
 
     const arena = createMatrix(17, 20);
     const player = { pos: { x: 5, y: 0 }, matrix: null, score: 0, lines: 0, level: 1 };
@@ -183,10 +322,18 @@
     const linesDisplay = document.getElementById('lines');
     const levelDisplay = document.getElementById('level');
     const timerDisplay = document.getElementById('timer');
+    const pauseBar = document.getElementById('pauseBar');
+    const gameOverModal = document.getElementById('gameOverModal');
+    const goScore = document.getElementById('goScore');
+    const levelUpOverlay = document.getElementById('levelUpOverlay');
+    const levelUpText = document.getElementById('levelUpText');
+    let paused = false, isGameOver = false;
 
     let startTime = Date.now();
+    let pausedTime = 0, pauseStart = 0;
     let dropInterval = 600;
     let pieceBag = [];
+    let pendingLevelUp = false;
 
     function randomPieceType() {
         if (pieceBag.length === 0) {
@@ -209,6 +356,11 @@
         playerReset();
         updateScore();
         startTime = Date.now();
+        pausedTime = 0;
+        paused = false;
+        isGameOver = false;
+        updatePauseBar();
+        gameOverModal.style.display = "none";
     }
 
     function updateMusicSpeed() {
@@ -217,7 +369,8 @@
     }
 
     function updateTimer() {
-        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        let realTime = Date.now();
+        const elapsed = Math.floor(((realTime - startTime) - pausedTime) / 1000);
         timerDisplay.textContent = `Temps: ${elapsed}s`;
     }
     setInterval(updateTimer, 1000);
@@ -285,10 +438,14 @@
             y++;
             player.score += rowCount * 100;
             player.lines++;
+            // --- LEVEL UP ---
+            let prevLevel = player.level;
             if (player.lines % 6 === 0) {
                 player.level++;
                 dropInterval = Math.max(50, dropInterval - 50);
                 updateMusicSpeed();
+                pendingLevelUp = player.level;
+                showLevelUp(player.level);
             }
             rowCount *= 2;
         }
@@ -300,7 +457,7 @@
             player.pos.y--;
             merge(arena, player);
             arenaSweep();
-            if (leaderboard.length === 0) fetchLeaderboard();
+            // Sauvegarde score si meilleur
             let prev = leaderboard.find(entry => entry.user === username);
             if (!prev || player.score > prev.score) {
                 updateLeaderboard(player.score);
@@ -316,12 +473,8 @@
         player.pos.y = 0;
         player.pos.x = (arena[0].length / 2 | 0) - (player.matrix[0].length / 2 | 0);
         if (collide(arena, player)) {
-            arena.forEach(row => row.fill(0));
-            player.score = 0;
-            player.lines = 0;
-            player.level = 1;
-            dropInterval = 600;
-            updateMusicSpeed();
+            isGameOver = true;
+            showGameOver();
         }
     }
 
@@ -338,46 +491,64 @@
         dir > 0 ? matrix.forEach(row => row.reverse()) : matrix.reverse();
     }
 
-    // Clavier
-    document.addEventListener('keydown', event => {
-        if (event.key === 'ArrowLeft') {
-            player.pos.x--;
-            if (collide(arena, player)) player.pos.x++;
-        } else if (event.key === 'ArrowRight') {
-            player.pos.x++;
-            if (collide(arena, player)) player.pos.x--;
-        } else if (event.key === 'ArrowDown') {
-            playerDrop();
-        } else if (event.key === ' ') {
-            rotate(player.matrix);
-            if (collide(arena, player)) {
-                player.pos.x++;
-                if (collide(arena, player)) player.pos.x -= 2;
-                if (collide(arena, player)) rotate(player.matrix, -1);
-            }
+    // --- LEVEL UP OVERLAY ---
+    function showLevelUp(level) {
+        levelUpOverlay.style.display = "flex";
+        levelUpText.textContent = `⟫ Niveau ${level} ! ⟪`;
+        levelUpText.style.animation = "none";
+        void levelUpText.offsetWidth;
+        levelUpText.style.animation = null;
+        setTimeout(() => { levelUpOverlay.style.display = "none"; }, 1200);
+    }
+
+    // --- Game Over UI ---
+    function showGameOver() {
+        goScore.textContent = `Ton score final : ${player.score}`;
+        gameOverModal.style.display = "flex";
+    }
+    function closeGameOver() {
+        gameOverModal.style.display = "none";
+        restartGame();
+    }
+    window.closeGameOver = closeGameOver;
+    window.addEventListener('keydown', (e) => {
+        if (isGameOver && (e.key === " " || e.key === "Enter")) {
+            closeGameOver();
         }
     });
 
-    // Contrôles tactiles (mobile)
-    function setupTouchControls() {
-        document.getElementById('btnLeft').addEventListener('touchstart', e => { e.preventDefault(); moveLeft(); });
-        document.getElementById('btnRight').addEventListener('touchstart', e => { e.preventDefault(); moveRight(); });
-        document.getElementById('btnDown').addEventListener('touchstart', e => { e.preventDefault(); playerDrop(); });
-        document.getElementById('btnRotate').addEventListener('touchstart', e => { e.preventDefault(); rotatePiece(); });
-        // Et aussi clic souris pour desktop (utile)
-        document.getElementById('btnLeft').addEventListener('click', moveLeft);
-        document.getElementById('btnRight').addEventListener('click', moveRight);
-        document.getElementById('btnDown').addEventListener('click', playerDrop);
-        document.getElementById('btnRotate').addEventListener('click', rotatePiece);
+    // --- PAUSE ---
+    function updatePauseBar() {
+        if (paused) {
+            pauseBar.innerHTML = "▶️ Reprendre";
+            pauseBar.classList.add("paused");
+        } else {
+            pauseBar.innerHTML = "⏸ Pause";
+            pauseBar.classList.remove("paused");
+        }
     }
-    function moveLeft() {
-        player.pos.x--;
-        if (collide(arena, player)) player.pos.x++;
+    function togglePause() {
+        if (isGameOver) return;
+        paused = !paused;
+        if (paused) pauseStart = Date.now();
+        else pausedTime += Date.now() - pauseStart;
+        updatePauseBar();
     }
-    function moveRight() {
-        player.pos.x++;
-        if (collide(arena, player)) player.pos.x--;
-    }
+    window.togglePause = togglePause;
+
+    window.addEventListener('keydown', (e) => {
+        if (isGameOver) return;
+        if (e.key === "p" || e.key === "P") togglePause();
+        if (paused) return;
+        if (e.key === 'ArrowLeft') moveLeft();
+        else if (e.key === 'ArrowRight') moveRight();
+        else if (e.key === 'ArrowDown') playerDrop();
+        else if (e.key === ' ') rotatePiece();
+    });
+
+    // Touch UI
+    function moveLeft() { player.pos.x--; if (collide(arena, player)) player.pos.x++; }
+    function moveRight() { player.pos.x++; if (collide(arena, player)) player.pos.x--; }
     function rotatePiece() {
         rotate(player.matrix);
         if (collide(arena, player)) {
@@ -386,9 +557,16 @@
             if (collide(arena, player)) rotate(player.matrix, -1);
         }
     }
-    setupTouchControls();
-
-    // Swipe (optionnel) : pour rotation ou drop rapide
+    function setupTouchControls() {
+        if ('ontouchstart' in window) {
+            document.getElementById('controls').style.display = "block";
+        }
+        document.getElementById('btnLeft').addEventListener('click', () => { if(!paused && !isGameOver) moveLeft(); });
+        document.getElementById('btnRight').addEventListener('click', () => { if(!paused && !isGameOver) moveRight(); });
+        document.getElementById('btnDown').addEventListener('click', () => { if(!paused && !isGameOver) playerDrop(); });
+        document.getElementById('btnRotate').addEventListener('click', () => { if(!paused && !isGameOver) rotatePiece(); });
+    }
+    // Swipe gesture
     let touchStartX = null, touchStartY = null;
     canvas.addEventListener('touchstart', function(e) {
         if (e.touches.length === 1) {
@@ -397,42 +575,52 @@
         }
     });
     canvas.addEventListener('touchend', function(e) {
-        if (touchStartX === null || touchStartY === null) return;
-        const touch = e.changedTouches[0];
-        const dx = touch.clientX - touchStartX;
-        const dy = touch.clientY - touchStartY;
-        if (Math.abs(dx) > Math.abs(dy)) {
-            // Swipe horizontal
-            if (dx > 40) moveRight();
-            else if (dx < -40) moveLeft();
-        } else {
-            // Swipe vertical
-            if (dy > 40) playerDrop();
-            else if (dy < -40) rotatePiece();
+        if (touchStartX !== null && e.changedTouches.length === 1 && !paused && !isGameOver) {
+            let dx = e.changedTouches[0].clientX - touchStartX;
+            let dy = e.changedTouches[0].clientY - touchStartY;
+            if (Math.abs(dx) > Math.abs(dy)) {
+                if (dx > 30) moveRight();
+                if (dx < -30) moveLeft();
+            } else {
+                if (dy > 40) playerDrop();
+                if (dy < -40) rotatePiece();
+            }
+            touchStartX = touchStartY = null;
         }
-        touchStartX = null; touchStartY = null;
     });
+    // Music unlock for mobile
+    document.addEventListener('touchstart', () => {
+        const audio = document.getElementById('bgMusic');
+        if (audio.paused) audio.play().catch(()=>{});
+    }, { once: true });
+    document.addEventListener('click', () => {
+        const audio = document.getElementById('bgMusic');
+        if (audio.paused) audio.play().catch(()=>{});
+    }, { once: true });
 
+    // Main loop
     let dropCounter = 0, lastTime = 0;
-
     function update(time = 0) {
-        const deltaTime = time - lastTime;
-        lastTime = time;
-        dropCounter += deltaTime;
-        if (dropCounter > dropInterval) playerDrop();
+        if (!paused && !isGameOver) {
+            const deltaTime = time - lastTime;
+            lastTime = time;
+            dropCounter += deltaTime;
+            if (dropCounter > dropInterval) playerDrop();
 
-        context.fillStyle = '#111122';
-        context.fillRect(0, 0, canvas.width, canvas.height);
+            context.fillStyle = '#111122';
+            context.fillRect(0, 0, canvas.width, canvas.height);
 
-        drawMatrix(arena, { x: 0, y: 0 });
-        drawMatrix(player.matrix, player.pos);
-
+            drawMatrix(arena, { x: 0, y: 0 });
+            drawMatrix(player.matrix, player.pos);
+        }
         requestAnimationFrame(update);
     }
 
     fetchLeaderboard();
     playerReset();
     updateScore();
+    updatePauseBar();
+    setupTouchControls();
     update();
 </script>
 </body>
