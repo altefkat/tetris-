@@ -10,30 +10,40 @@
             font-family: Arial, sans-serif;
             background: url('./background.png') center center / cover no-repeat;
             color: #ddd;
+            margin: 0;
+            padding: 0;
+        }
+        #container {
+            max-width: 410px;
+            margin: auto;
         }
         canvas {
             border: 4px solid #6A0DAD;
             border-radius: 12px;
             box-shadow: 0 0 20px #6A0DAD, 0 0 40px #220044;
             display: block;
-            margin: 20px auto;
+            margin: 20px auto 8px auto;
             background-color: rgba(0, 0, 0, 0.7);
+            width: 100%;
+            height: auto;
+            touch-action: none;
         }
         #leaderboard {
-            margin: 15px auto 20px auto;
-            width: 350px;
+            margin: 10px auto 18px auto;
+            width: 98%;
             background: rgba(16, 7, 30, 0.9);
             border-radius: 12px;
             box-shadow: 0 0 8px #6A0DAD;
             padding: 10px;
             color: #fff;
+            font-size: 15px;
         }
         #leaderboard th, #leaderboard td {
-            padding: 3px 8px;
+            padding: 3px 6px;
         }
         #userBar {
-            margin: 10px 0;
-            font-size: 18px;
+            margin: 10px 0 5px 0;
+            font-size: 16px;
             font-weight: bold;
         }
         #changeUserBtn {
@@ -46,9 +56,37 @@
             padding: 4px 8px;
             cursor: pointer;
         }
+        #controls {
+            display: none;
+            margin: 0 auto 10px auto;
+            width: 98%;
+            max-width: 410px;
+        }
+        .ctrl-btn {
+            display: inline-block;
+            background: #3a156d;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            margin: 4px 5px;
+            padding: 16px 20px;
+            font-size: 20px;
+            font-weight: bold;
+            box-shadow: 0 0 12px #6A0DAD33;
+            user-select: none;
+            touch-action: manipulation;
+        }
+        @media (max-width: 600px) {
+            #container { max-width: 100vw; }
+            canvas { max-width: 98vw; }
+            #controls { display: block; }
+            #leaderboard, #userBar { font-size: 13px; }
+            .ctrl-btn { padding: 12px 13px; font-size: 19px; }
+        }
     </style>
 </head>
 <body>
+<div id="container">
     <h1>Tetris pour les bg</h1>
     <div id="userBar"></div>
     <audio id="bgMusic" src="./music.mp3" autoplay loop></audio>
@@ -59,6 +97,12 @@
         <span id="timer">Temps: 0s</span>
     </div>
     <button onclick="restartGame()">Redémarrer</button>
+    <div id="controls">
+        <button class="ctrl-btn" id="btnLeft">◀️</button>
+        <button class="ctrl-btn" id="btnRotate">⟳</button>
+        <button class="ctrl-btn" id="btnRight">▶️</button>
+        <button class="ctrl-btn" id="btnDown">⬇️</button>
+    </div>
     <canvas id="tetris" width="340" height="400"></canvas>
     <div id="leaderboard">
         <b>Leaderboard mondial</b>
@@ -67,274 +111,329 @@
             <tbody></tbody>
         </table>
     </div>
-    <script>
-        // === CONFIG JSONBIN ===
-        const API_KEY = "$2a$10$QaIl/jNblmE41X0hexsVMeqBDs68V0Hpu9nSNXw7BYEcYiVWEHd4K";
-        const BIN_ID = "6825bd578561e97a5014584f";
-        const BIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
-        let leaderboard = [];
-        let username = null;
+</div>
+<script>
+    // JSONBIN config
+    const API_KEY = "$2a$10$QaIl/jNblmE41X0hexsVMeqBDs68V0Hpu9nSNXw7BYEcYiVWEHd4K";
+    const BIN_ID = "6825bd578561e97a5014584f";
+    const BIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+    let leaderboard = [];
+    let username = null;
 
-        // Fonction pour demander ou changer le pseudo
-        function setUsername(force = false) {
-            username = localStorage.getItem('tetrisUser');
-            if (!username || force) {
-                username = prompt("Entrez votre pseudo pour le classement :", username || "");
-                if (!username) username = "Anonyme";
-                localStorage.setItem('tetrisUser', username);
+    function setUsername(force = false) {
+        username = localStorage.getItem('tetrisUser');
+        if (!username || force) {
+            username = prompt("Entrez votre pseudo pour le classement :", username || "");
+            if (!username) username = "Anonyme";
+            localStorage.setItem('tetrisUser', username);
+        }
+        document.getElementById('userBar').innerHTML =
+            `Tu joues en tant que : <b>${username}</b>
+            <button id="changeUserBtn" onclick="setUsername(true)">Changer</button>`;
+    }
+    window.setUsername = setUsername;
+    setUsername();
+
+    function renderLeaderboard() {
+        leaderboard.sort((a, b) => b.score - a.score);
+        let tbody = document.querySelector('#lbTable tbody');
+        tbody.innerHTML = "";
+        leaderboard.slice(0, 10).forEach((entry, idx) => {
+            let row = document.createElement('tr');
+            row.innerHTML = `<td>${idx + 1}</td><td>${entry.user}</td><td>${entry.score}</td>`;
+            tbody.appendChild(row);
+        });
+    }
+    function fetchLeaderboard() {
+        fetch(BIN_URL, { headers: { "X-Master-Key": API_KEY } })
+        .then(res => res.json())
+        .then(data => {
+            leaderboard = data.record.scores || [];
+            renderLeaderboard();
+        });
+    }
+    function updateLeaderboard(newScore) {
+        let found = false;
+        leaderboard = leaderboard.map(entry => {
+            if (entry.user === username) {
+                found = true;
+                return { user: username, score: Math.max(newScore, entry.score) };
             }
-            document.getElementById('userBar').innerHTML =
-                `Tu joues en tant que : <b>${username}</b>
-                <button id="changeUserBtn" onclick="setUsername(true)">Changer</button>`;
+            return entry;
+        });
+        if (!found) leaderboard.push({ user: username, score: newScore });
+        fetch(BIN_URL, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "X-Master-Key": API_KEY
+            },
+            body: JSON.stringify({ scores: leaderboard })
+        }).then(() => renderLeaderboard());
+    }
+
+    // === TETRIS ===
+    const canvas = document.getElementById('tetris');
+    const context = canvas.getContext('2d');
+    context.scale(20, 20);
+
+    const arena = createMatrix(17, 20);
+    const player = { pos: { x: 5, y: 0 }, matrix: null, score: 0, lines: 0, level: 1 };
+    const scoreDisplay = document.getElementById('score');
+    const linesDisplay = document.getElementById('lines');
+    const levelDisplay = document.getElementById('level');
+    const timerDisplay = document.getElementById('timer');
+
+    let startTime = Date.now();
+    let dropInterval = 600;
+    let pieceBag = [];
+
+    function randomPieceType() {
+        if (pieceBag.length === 0) {
+            pieceBag = 'TOLJISZ'.split('');
+            for (let i = pieceBag.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [pieceBag[i], pieceBag[j]] = [pieceBag[j], pieceBag[i]];
+            }
         }
-        window.setUsername = setUsername; // pour l'accès dans le bouton inline
-        setUsername();
+        return pieceBag.pop();
+    }
 
-        // Leaderboard
-        function renderLeaderboard() {
-            leaderboard.sort((a, b) => b.score - a.score);
-            let tbody = document.querySelector('#lbTable tbody');
-            tbody.innerHTML = "";
-            leaderboard.slice(0, 10).forEach((entry, idx) => {
-                let row = document.createElement('tr');
-                row.innerHTML = `<td>${idx + 1}</td><td>${entry.user}</td><td>${entry.score}</td>`;
-                tbody.appendChild(row);
-            });
+    function restartGame() {
+        arena.forEach(row => row.fill(0));
+        player.score = 0;
+        player.lines = 0;
+        player.level = 1;
+        dropInterval = 600;
+        updateMusicSpeed();
+        playerReset();
+        updateScore();
+        startTime = Date.now();
+    }
+
+    function updateMusicSpeed() {
+        const audio = document.getElementById('bgMusic');
+        audio.playbackRate = 1 + (player.level - 1) * 0.1;
+    }
+
+    function updateTimer() {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        timerDisplay.textContent = `Temps: ${elapsed}s`;
+    }
+    setInterval(updateTimer, 1000);
+
+    function createMatrix(w, h) {
+        const matrix = [];
+        while (h--) matrix.push(new Array(w).fill(0));
+        return matrix;
+    }
+
+    function createPiece(type) {
+        switch (type) {
+            case 'T': return [[0,0,0],[1,1,1],[0,1,0]];
+            case 'O': return [[2,2],[2,2]];
+            case 'L': return [[0,3,0],[0,3,0],[0,3,3]];
+            case 'J': return [[0,4,0],[0,4,0],[4,4,0]];
+            case 'I': return [[0,5,0,0],[0,5,0,0],[0,5,0,0],[0,5,0,0]];
+            case 'S': return [[0,6,6],[6,6,0],[0,0,0]];
+            case 'Z': return [[7,7,0],[0,7,7],[0,0,0]];
         }
-        function fetchLeaderboard() {
-            fetch(BIN_URL, { headers: { "X-Master-Key": API_KEY } })
-            .then(res => res.json())
-            .then(data => {
-                leaderboard = data.record.scores || [];
-                renderLeaderboard();
-            });
-        }
-        function updateLeaderboard(newScore) {
-            let found = false;
-            leaderboard = leaderboard.map(entry => {
-                if (entry.user === username) {
-                    found = true;
-                    return { user: username, score: Math.max(newScore, entry.score) };
-                }
-                return entry;
-            });
-            if (!found) leaderboard.push({ user: username, score: newScore });
-            fetch(BIN_URL, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-Master-Key": API_KEY
-                },
-                body: JSON.stringify({ scores: leaderboard })
-            }).then(() => renderLeaderboard());
-        }
+    }
 
-        // === TETRIS ===
-        const canvas = document.getElementById('tetris');
-        const context = canvas.getContext('2d');
-        context.scale(20, 20);
+    function drawMatrix(matrix, offset) {
+        const colors = [null, '#4B0082', '#6A0DAD', '#7B68EE', '#8A2BE2', '#00BFFF', '#1E90FF', '#4169E1'];
+        matrix.forEach((row, y) => row.forEach((value, x) => {
+            if (value !== 0) {
+                context.fillStyle = colors[value];
+                context.fillRect(x + offset.x, y + offset.y, 1, 1);
+            }
+        }));
+    }
 
-        const arena = createMatrix(17, 20);
-        const player = { pos: { x: 5, y: 0 }, matrix: null, score: 0, lines: 0, level: 1 };
-        const scoreDisplay = document.getElementById('score');
-        const linesDisplay = document.getElementById('lines');
-        const levelDisplay = document.getElementById('level');
-        const timerDisplay = document.getElementById('timer');
+    function merge(arena, player) {
+        player.matrix.forEach((row, y) => row.forEach((value, x) => {
+            if (value !== 0) arena[y + player.pos.y][x + player.pos.x] = value;
+        }));
+    }
 
-        let startTime = Date.now();
-        let dropInterval = 600;
-        let pieceBag = [];
-
-        function randomPieceType() {
-            if (pieceBag.length === 0) {
-                pieceBag = 'TOLJISZ'.split('');
-                for (let i = pieceBag.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [pieceBag[i], pieceBag[j]] = [pieceBag[j], pieceBag[i]];
+    function collide(arena, player) {
+        const m = player.matrix;
+        const o = player.pos;
+        for (let y = 0; y < m.length; ++y) {
+            for (let x = 0; x < m[y].length; ++x) {
+                if (m[y][x] !== 0) {
+                    if (o.x + x < 0 || o.x + x >= arena[0].length || o.y + y >= arena.length) {
+                        return true;
+                    }
+                    if (arena[o.y + y] && arena[o.y + y][o.x + x] !== 0) {
+                        return true;
+                    }
                 }
             }
-            return pieceBag.pop();
         }
+        return false;
+    }
 
-        function restartGame() {
+    function arenaSweep() {
+        let rowCount = 1;
+        outer: for (let y = arena.length - 1; y >= 0; y--) {
+            for (let x = 0; x < arena[y].length; x++) {
+                if (arena[y][x] === 0) continue outer;
+            }
+            const row = arena.splice(y, 1)[0].fill(0);
+            arena.unshift(row);
+            y++;
+            player.score += rowCount * 100;
+            player.lines++;
+            if (player.lines % 6 === 0) {
+                player.level++;
+                dropInterval = Math.max(50, dropInterval - 50);
+                updateMusicSpeed();
+            }
+            rowCount *= 2;
+        }
+    }
+
+    function playerDrop() {
+        player.pos.y++;
+        if (collide(arena, player)) {
+            player.pos.y--;
+            merge(arena, player);
+            arenaSweep();
+            if (leaderboard.length === 0) fetchLeaderboard();
+            let prev = leaderboard.find(entry => entry.user === username);
+            if (!prev || player.score > prev.score) {
+                updateLeaderboard(player.score);
+            }
+            updateScore();
+            playerReset();
+        }
+        dropCounter = 0;
+    }
+
+    function playerReset() {
+        player.matrix = createPiece(randomPieceType());
+        player.pos.y = 0;
+        player.pos.x = (arena[0].length / 2 | 0) - (player.matrix[0].length / 2 | 0);
+        if (collide(arena, player)) {
             arena.forEach(row => row.fill(0));
             player.score = 0;
             player.lines = 0;
             player.level = 1;
             dropInterval = 600;
             updateMusicSpeed();
-            playerReset();
-            updateScore();
-            startTime = Date.now();
         }
+    }
 
-        function updateMusicSpeed() {
-            const audio = document.getElementById('bgMusic');
-            audio.playbackRate = 1 + (player.level - 1) * 0.1;
-        }
+    function updateScore() {
+        scoreDisplay.textContent = `Score: ${player.score}`;
+        linesDisplay.textContent = `Lignes: ${player.lines}`;
+        levelDisplay.textContent = `Niveau: ${player.level}`;
+    }
 
-        function updateTimer() {
-            const elapsed = Math.floor((Date.now() - startTime) / 1000);
-            timerDisplay.textContent = `Temps: ${elapsed}s`;
-        }
-        setInterval(updateTimer, 1000);
+    function rotate(matrix, dir = 1) {
+        for (let y = 0; y < matrix.length; ++y)
+            for (let x = 0; x < y; ++x)
+                [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
+        dir > 0 ? matrix.forEach(row => row.reverse()) : matrix.reverse();
+    }
 
-        function createMatrix(w, h) {
-            const matrix = [];
-            while (h--) matrix.push(new Array(w).fill(0));
-            return matrix;
-        }
-
-        function createPiece(type) {
-            switch (type) {
-                case 'T': return [[0,0,0],[1,1,1],[0,1,0]];
-                case 'O': return [[2,2],[2,2]];
-                case 'L': return [[0,3,0],[0,3,0],[0,3,3]];
-                case 'J': return [[0,4,0],[0,4,0],[4,4,0]];
-                case 'I': return [[0,5,0,0],[0,5,0,0],[0,5,0,0],[0,5,0,0]];
-                case 'S': return [[0,6,6],[6,6,0],[0,0,0]];
-                case 'Z': return [[7,7,0],[0,7,7],[0,0,0]];
-            }
-        }
-
-        function drawMatrix(matrix, offset) {
-            const colors = [null, '#4B0082', '#6A0DAD', '#7B68EE', '#8A2BE2', '#00BFFF', '#1E90FF', '#4169E1'];
-            matrix.forEach((row, y) => row.forEach((value, x) => {
-                if (value !== 0) {
-                    context.fillStyle = colors[value];
-                    context.fillRect(x + offset.x, y + offset.y, 1, 1);
-                }
-            }));
-        }
-
-        function merge(arena, player) {
-            player.matrix.forEach((row, y) => row.forEach((value, x) => {
-                if (value !== 0) arena[y + player.pos.y][x + player.pos.x] = value;
-            }));
-        }
-
-        function collide(arena, player) {
-            const m = player.matrix;
-            const o = player.pos;
-            for (let y = 0; y < m.length; ++y) {
-                for (let x = 0; x < m[y].length; ++x) {
-                    if (m[y][x] !== 0) {
-                        if (o.x + x < 0 || o.x + x >= arena[0].length || o.y + y >= arena.length) {
-                            return true;
-                        }
-                        if (arena[o.y + y] && arena[o.y + y][o.x + x] !== 0) {
-                            return true;
-                        }
-                    }
-                }
-            }
-            return false;
-        }
-
-        function arenaSweep() {
-            let rowCount = 1;
-            outer: for (let y = arena.length - 1; y >= 0; y--) {
-                for (let x = 0; x < arena[y].length; x++) {
-                    if (arena[y][x] === 0) continue outer;
-                }
-                const row = arena.splice(y, 1)[0].fill(0);
-                arena.unshift(row);
-                y++;
-                player.score += rowCount * 100;
-                player.lines++;
-                if (player.lines % 6 === 0) {
-                    player.level++;
-                    dropInterval = Math.max(50, dropInterval - 50);
-                    updateMusicSpeed();
-                }
-                rowCount *= 2;
-            }
-        }
-
-        function playerDrop() {
-            player.pos.y++;
+    // Clavier
+    document.addEventListener('keydown', event => {
+        if (event.key === 'ArrowLeft') {
+            player.pos.x--;
+            if (collide(arena, player)) player.pos.x++;
+        } else if (event.key === 'ArrowRight') {
+            player.pos.x++;
+            if (collide(arena, player)) player.pos.x--;
+        } else if (event.key === 'ArrowDown') {
+            playerDrop();
+        } else if (event.key === ' ') {
+            rotate(player.matrix);
             if (collide(arena, player)) {
-                player.pos.y--;
-                merge(arena, player);
-                arenaSweep();
-                if (leaderboard.length === 0) fetchLeaderboard();
-                let prev = leaderboard.find(entry => entry.user === username);
-                if (!prev || player.score > prev.score) {
-                    updateLeaderboard(player.score);
-                }
-                updateScore();
-                playerReset();
-            }
-            dropCounter = 0;
-        }
-
-        function playerReset() {
-            player.matrix = createPiece(randomPieceType());
-            player.pos.y = 0;
-            player.pos.x = (arena[0].length / 2 | 0) - (player.matrix[0].length / 2 | 0);
-            if (collide(arena, player)) {
-                arena.forEach(row => row.fill(0));
-                player.score = 0;
-                player.lines = 0;
-                player.level = 1;
-                dropInterval = 600;
-                updateMusicSpeed();
-            }
-        }
-
-        function updateScore() {
-            scoreDisplay.textContent = `Score: ${player.score}`;
-            linesDisplay.textContent = `Lignes: ${player.lines}`;
-            levelDisplay.textContent = `Niveau: ${player.level}`;
-        }
-
-        function rotate(matrix, dir = 1) {
-            for (let y = 0; y < matrix.length; ++y)
-                for (let x = 0; x < y; ++x)
-                    [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
-            dir > 0 ? matrix.forEach(row => row.reverse()) : matrix.reverse();
-        }
-
-        document.addEventListener('keydown', event => {
-            if (event.key === 'ArrowLeft') {
-                player.pos.x--;
-                if (collide(arena, player)) player.pos.x++;
-            } else if (event.key === 'ArrowRight') {
                 player.pos.x++;
-                if (collide(arena, player)) player.pos.x--;
-            } else if (event.key === 'ArrowDown') {
-                playerDrop();
-            } else if (event.key === ' ') {
-                rotate(player.matrix);
-                if (collide(arena, player)) {
-                    player.pos.x++;
-                    if (collide(arena, player)) player.pos.x -= 2;
-                    if (collide(arena, player)) rotate(player.matrix, -1);
-                }
+                if (collide(arena, player)) player.pos.x -= 2;
+                if (collide(arena, player)) rotate(player.matrix, -1);
             }
-        });
-
-        let dropCounter = 0, lastTime = 0;
-
-        function update(time = 0) {
-            const deltaTime = time - lastTime;
-            lastTime = time;
-            dropCounter += deltaTime;
-            if (dropCounter > dropInterval) playerDrop();
-
-            context.fillStyle = '#111122';
-            context.fillRect(0, 0, canvas.width, canvas.height);
-
-            drawMatrix(arena, { x: 0, y: 0 });
-            drawMatrix(player.matrix, player.pos);
-
-            requestAnimationFrame(update);
         }
+    });
 
-        fetchLeaderboard();
-        playerReset();
-        updateScore();
-        update();
-    </script>
+    // Contrôles tactiles (mobile)
+    function setupTouchControls() {
+        document.getElementById('btnLeft').addEventListener('touchstart', e => { e.preventDefault(); moveLeft(); });
+        document.getElementById('btnRight').addEventListener('touchstart', e => { e.preventDefault(); moveRight(); });
+        document.getElementById('btnDown').addEventListener('touchstart', e => { e.preventDefault(); playerDrop(); });
+        document.getElementById('btnRotate').addEventListener('touchstart', e => { e.preventDefault(); rotatePiece(); });
+        // Et aussi clic souris pour desktop (utile)
+        document.getElementById('btnLeft').addEventListener('click', moveLeft);
+        document.getElementById('btnRight').addEventListener('click', moveRight);
+        document.getElementById('btnDown').addEventListener('click', playerDrop);
+        document.getElementById('btnRotate').addEventListener('click', rotatePiece);
+    }
+    function moveLeft() {
+        player.pos.x--;
+        if (collide(arena, player)) player.pos.x++;
+    }
+    function moveRight() {
+        player.pos.x++;
+        if (collide(arena, player)) player.pos.x--;
+    }
+    function rotatePiece() {
+        rotate(player.matrix);
+        if (collide(arena, player)) {
+            player.pos.x++;
+            if (collide(arena, player)) player.pos.x -= 2;
+            if (collide(arena, player)) rotate(player.matrix, -1);
+        }
+    }
+    setupTouchControls();
+
+    // Swipe (optionnel) : pour rotation ou drop rapide
+    let touchStartX = null, touchStartY = null;
+    canvas.addEventListener('touchstart', function(e) {
+        if (e.touches.length === 1) {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        }
+    });
+    canvas.addEventListener('touchend', function(e) {
+        if (touchStartX === null || touchStartY === null) return;
+        const touch = e.changedTouches[0];
+        const dx = touch.clientX - touchStartX;
+        const dy = touch.clientY - touchStartY;
+        if (Math.abs(dx) > Math.abs(dy)) {
+            // Swipe horizontal
+            if (dx > 40) moveRight();
+            else if (dx < -40) moveLeft();
+        } else {
+            // Swipe vertical
+            if (dy > 40) playerDrop();
+            else if (dy < -40) rotatePiece();
+        }
+        touchStartX = null; touchStartY = null;
+    });
+
+    let dropCounter = 0, lastTime = 0;
+
+    function update(time = 0) {
+        const deltaTime = time - lastTime;
+        lastTime = time;
+        dropCounter += deltaTime;
+        if (dropCounter > dropInterval) playerDrop();
+
+        context.fillStyle = '#111122';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        drawMatrix(arena, { x: 0, y: 0 });
+        drawMatrix(player.matrix, player.pos);
+
+        requestAnimationFrame(update);
+    }
+
+    fetchLeaderboard();
+    playerReset();
+    updateScore();
+    update();
+</script>
 </body>
 </html>
