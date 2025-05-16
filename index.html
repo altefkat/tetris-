@@ -5,17 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tetris Leaderboard BG</title>
     <style>
+        html, body {
+            margin: 0; padding: 0;
+            background: url('./background.png') center center / cover no-repeat;
+        }
         body {
             text-align: center;
             font-family: Arial, sans-serif;
-            background: url('./background.png') center center / cover no-repeat;
             color: #ddd;
-            margin: 0;
-            padding: 0;
+            min-height: 100vh;
         }
         #container {
-            max-width: 410px;
+            max-width: 420px;
             margin: auto;
+            padding: 0 6px;
         }
         canvas {
             border: 4px solid #6A0DAD;
@@ -25,7 +28,9 @@
             margin: 20px auto 8px auto;
             background-color: rgba(0, 0, 0, 0.7);
             width: 100%;
+            max-width: 340px;
             height: auto;
+            aspect-ratio: 17 / 20;
             touch-action: none;
         }
         #pauseBar {
@@ -103,11 +108,12 @@
         #pauseBtn { display: none; }
         @media (max-width: 600px) {
             #container { max-width: 100vw; }
-            canvas { max-width: 98vw; }
+            canvas { max-width: 100vw; }
             #controls, #pauseBtn { display: block; }
             #leaderboard, #userBar { font-size: 13px; }
             .ctrl-btn { padding: 12px 13px; font-size: 19px; }
         }
+        /* ... styles modaux et level up ... (garde les styles précédents pour GAME OVER & Level Up) ... */
         #gameOverModal {
             position: fixed;
             left: 0; right: 0; top: 0; bottom: 0;
@@ -167,7 +173,6 @@
             background: linear-gradient(90deg, #8A2BE2 0%, #6A0DAD 100%);
             color: #fff;
         }
-        /* --- LEVEL UP ANIMATION --- */
         #levelUpOverlay {
             display: none;
             position: fixed;
@@ -243,6 +248,16 @@
     <div id="levelUpText"></div>
 </div>
 <script>
+    // Débloque la musique uniquement sur le premier clic/touch
+    function unlockMusic() {
+        const audio = document.getElementById('bgMusic');
+        if (audio && audio.paused) audio.play().catch(()=>{});
+        document.removeEventListener('touchstart', unlockMusic);
+        document.removeEventListener('click', unlockMusic);
+    }
+    document.addEventListener('touchstart', unlockMusic, { once: true });
+    document.addEventListener('click', unlockMusic, { once: true });
+
     // === LEADERBOARD JSONBIN ===
     const API_KEY = "$2a$10$QaIl/jNblmE41X0hexsVMeqBDs68V0Hpu9nSNXw7BYEcYiVWEHd4K";
     const BIN_ID = "6825bd578561e97a5014584f";
@@ -305,11 +320,18 @@
     // === TETRIS ===
     const canvas = document.getElementById('tetris');
     const context = canvas.getContext('2d');
+
     function resizeCanvas() {
-        let displayWidth = Math.min(canvas.parentNode.offsetWidth, 410);
+        // Responsive en gardant un vrai ratio de 17x20
+        let parentW = Math.min(canvas.parentNode.offsetWidth, 420);
         let ratio = window.devicePixelRatio || 1;
-        canvas.width = Math.round(displayWidth * ratio);
-        canvas.height = Math.round(400 * (displayWidth / 340) * ratio);
+        let baseWidth = 340;
+        let baseHeight = 400;
+        // calcul largeur réelle (max) + respect ratio
+        let newWidth = parentW;
+        let newHeight = parentW * (baseHeight / baseWidth);
+        canvas.width = Math.round(newWidth * ratio);
+        canvas.height = Math.round(newHeight * ratio);
         context.setTransform(1, 0, 0, 1, 0, 0);
         context.scale((canvas.width / 17) / 20, (canvas.height / 20) / 20);
     }
@@ -438,7 +460,6 @@
             y++;
             player.score += rowCount * 100;
             player.lines++;
-            // --- LEVEL UP ---
             let prevLevel = player.level;
             if (player.lines % 6 === 0) {
                 player.level++;
@@ -457,7 +478,6 @@
             player.pos.y--;
             merge(arena, player);
             arenaSweep();
-            // Sauvegarde score si meilleur
             let prev = leaderboard.find(entry => entry.user === username);
             if (!prev || player.score > prev.score) {
                 updateLeaderboard(player.score);
@@ -491,7 +511,6 @@
         dir > 0 ? matrix.forEach(row => row.reverse()) : matrix.reverse();
     }
 
-    // --- LEVEL UP OVERLAY ---
     function showLevelUp(level) {
         levelUpOverlay.style.display = "flex";
         levelUpText.textContent = `⟫ Niveau ${level} ! ⟪`;
@@ -501,7 +520,6 @@
         setTimeout(() => { levelUpOverlay.style.display = "none"; }, 1200);
     }
 
-    // --- Game Over UI ---
     function showGameOver() {
         goScore.textContent = `Ton score final : ${player.score}`;
         gameOverModal.style.display = "flex";
@@ -517,7 +535,6 @@
         }
     });
 
-    // --- PAUSE ---
     function updatePauseBar() {
         if (paused) {
             pauseBar.innerHTML = "▶️ Reprendre";
@@ -588,33 +605,6 @@
             touchStartX = touchStartY = null;
         }
     });
-    // Music unlock for mobile
-    document.addEventListener('touchstart', () => {
-        const audio = document.getElementById('bgMusic');
-        if (audio.paused) audio.play().catch(()=>{});
-    }, { once: true });
-    document.addEventListener('click', () => {
-        const audio = document.getElementById('bgMusic');
-        if (audio.paused) audio.play().catch(()=>{});
-    }, { once: true });
-
-    // Main loop
-    let dropCounter = 0, lastTime = 0;
-    function update(time = 0) {
-        if (!paused && !isGameOver) {
-            const deltaTime = time - lastTime;
-            lastTime = time;
-            dropCounter += deltaTime;
-            if (dropCounter > dropInterval) playerDrop();
-
-            context.fillStyle = '#111122';
-            context.fillRect(0, 0, canvas.width, canvas.height);
-
-            drawMatrix(arena, { x: 0, y: 0 });
-            drawMatrix(player.matrix, player.pos);
-        }
-        requestAnimationFrame(update);
-    }
 
     fetchLeaderboard();
     playerReset();
