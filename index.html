@@ -8,12 +8,12 @@
         html, body {
             margin: 0; padding: 0;
             background: url('./background.png') center center / cover no-repeat;
+            min-height: 100vh;
         }
         body {
             text-align: center;
             font-family: Arial, sans-serif;
             color: #ddd;
-            min-height: 100vh;
         }
         #container {
             max-width: 420px;
@@ -113,7 +113,6 @@
             #leaderboard, #userBar { font-size: 13px; }
             .ctrl-btn { padding: 12px 13px; font-size: 19px; }
         }
-        /* ... styles modaux et level up ... (garde les styles précédents pour GAME OVER & Level Up) ... */
         #gameOverModal {
             position: fixed;
             left: 0; right: 0; top: 0; bottom: 0;
@@ -234,8 +233,6 @@
         </table>
     </div>
 </div>
-
-<!-- GAME OVER MODAL -->
 <div id="gameOverModal">
     <div id="gameOverBox">
         <div id="goTitle">GAME OVER</div>
@@ -243,12 +240,11 @@
         <button id="goRestart" onclick="closeGameOver()">Relancer</button>
     </div>
 </div>
-<!-- LEVEL UP OVERLAY -->
 <div id="levelUpOverlay">
     <div id="levelUpText"></div>
 </div>
 <script>
-    // Débloque la musique uniquement sur le premier clic/touch
+    // Debloque la musique sur 1er clic/touch
     function unlockMusic() {
         const audio = document.getElementById('bgMusic');
         if (audio && audio.paused) audio.play().catch(()=>{});
@@ -322,12 +318,10 @@
     const context = canvas.getContext('2d');
 
     function resizeCanvas() {
-        // Responsive en gardant un vrai ratio de 17x20
         let parentW = Math.min(canvas.parentNode.offsetWidth, 420);
         let ratio = window.devicePixelRatio || 1;
         let baseWidth = 340;
         let baseHeight = 400;
-        // calcul largeur réelle (max) + respect ratio
         let newWidth = parentW;
         let newHeight = parentW * (baseHeight / baseWidth);
         canvas.width = Math.round(newWidth * ratio);
@@ -460,12 +454,10 @@
             y++;
             player.score += rowCount * 100;
             player.lines++;
-            let prevLevel = player.level;
             if (player.lines % 6 === 0) {
                 player.level++;
                 dropInterval = Math.max(50, dropInterval - 50);
                 updateMusicSpeed();
-                pendingLevelUp = player.level;
                 showLevelUp(player.level);
             }
             rowCount *= 2;
@@ -473,6 +465,7 @@
     }
 
     function playerDrop() {
+        if (paused || isGameOver) return;
         player.pos.y++;
         if (collide(arena, player)) {
             player.pos.y--;
@@ -582,6 +575,7 @@
         document.getElementById('btnRight').addEventListener('click', () => { if(!paused && !isGameOver) moveRight(); });
         document.getElementById('btnDown').addEventListener('click', () => { if(!paused && !isGameOver) playerDrop(); });
         document.getElementById('btnRotate').addEventListener('click', () => { if(!paused && !isGameOver) rotatePiece(); });
+        document.getElementById('pauseBtn').addEventListener('click', () => { togglePause(); });
     }
     // Swipe gesture
     let touchStartX = null, touchStartY = null;
@@ -606,12 +600,31 @@
         }
     });
 
+    // Animation / Game loop
+    let dropCounter = 0, lastTime = 0;
+    function update(time = 0) {
+        if (!paused && !isGameOver) {
+            const deltaTime = time - lastTime;
+            lastTime = time;
+            dropCounter += deltaTime;
+            if (dropCounter > dropInterval) playerDrop();
+
+            context.fillStyle = '#111122';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+
+            drawMatrix(arena, { x: 0, y: 0 });
+            drawMatrix(player.matrix, player.pos);
+        }
+        requestAnimationFrame(update);
+    }
+
     fetchLeaderboard();
     playerReset();
     updateScore();
     updatePauseBar();
     setupTouchControls();
     update();
+
 </script>
 </body>
 </html>
