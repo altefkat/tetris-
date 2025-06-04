@@ -182,6 +182,8 @@
 </div>
 <script>
 
+    let bonusUsedThisLevel = 0;
+        
     function playSound(id) {
     const audio = document.getElementById(id);
     if (audio) {
@@ -367,13 +369,20 @@ document.addEventListener('touchstart', unlockAudio, {once: true});
         }
     }
 
-    function randomEffect() {
+  function randomEffect() {
+    // Limite à 2 bonus/malus par niveau
+    if (bonusUsedThisLevel >= 2) return null;
     let r = Math.random();
-    if (r < 0.12) return "bonus";   // 12% de chance
-    if (r < 0.22) return "malus";   // 10% de chance
-    if (r < 0.27) return "speedup"; // 5% de chance
-    return null;                    // 73% des cas : rien
+    if (r < 0.07) { // 7% de chance par pièce (environ 1-2 par 20 pièces, ajustable)
+        bonusUsedThisLevel++;
+        if (r < 0.025) return "bonus";
+        if (r < 0.045) return "malus";
+        return "speedup";
     }
+    return null;
+}
+
+
 
    function randomNeonColor(baseIdx) {
     // Palette bleu/violet
@@ -496,6 +505,7 @@ player.score += gain;
             player.lines++;
             if (player.lines % 6 === 0) {
                 player.level++;
+                bonusUsedThisLevel = 0;
                 dropInterval = Math.max(50, dropInterval - 50);
                 updateMusicSpeed();
                 showLevelUp(player.level);
