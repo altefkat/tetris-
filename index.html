@@ -178,6 +178,22 @@
     <div id="levelUpText"></div>
 </div>
 <script>
+    // 1. MUSIQUE AUTOPLAY/AUTO-UNLOCK
+window.addEventListener('load', () => {
+    const audio = document.getElementById('bgMusic');
+    if (audio.paused) audio.play().catch(()=>{});
+});
+function unlockAudio() {
+    const audio = document.getElementById('bgMusic');
+    if (audio.paused) audio.play().catch(()=>{});
+    document.removeEventListener('keydown', unlockAudio);
+    document.removeEventListener('touchstart', unlockAudio);
+}
+document.addEventListener('keydown', unlockAudio, {once: true});
+document.addEventListener('touchstart', unlockAudio, {once: true});
+
+
+    
     // ======================
     // === LEADERBOARD & USERNAME
     // ======================
@@ -301,8 +317,8 @@
     }
 
     function updateMusicSpeed() {
-        const audio = document.getElementById('bgMusic');
-        audio.playbackRate = 1 + (player.level - 1) * 0.1;
+          const audio = document.getElementById('bgMusic');
+    audio.playbackRate = Math.min(2, 1 + (player.level - 1) * 0.17); // accélère plus vite
     }
 
     function updateTimer() {
