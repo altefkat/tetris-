@@ -3,25 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tetris Leaderboard BG</title>
+    <title>Tetris Leaderboard BG Futuriste</title>
     <style>
+        html, body {
+            margin: 0; padding: 0;
+            background: url('./background.png') center center / cover no-repeat #0d0d1a;
+            min-height: 100vh;
+        }
         body {
             text-align: center;
             font-family: Arial, sans-serif;
-            background: url('./background.png') center center / cover no-repeat;
             color: #ddd;
-            margin: 0;
-            overflow-x: hidden;
         }
         canvas {
-            border: 4px solid #6A0DAD;
-            border-radius: 14px;
-            box-shadow: 0 0 28px #6A0DAD, 0 0 60px #220044;
+            border: 4px solid #8a2be2;
+            border-radius: 24px;
+            box-shadow: 0 0 40px #6A0DAD, 0 0 100px #00BFFF88;
             display: block;
-            margin: 24px auto;
-            background: rgba(20,24,40, 0.94);
-            touch-action: none;
-            transition: box-shadow 0.2s;
+            margin: 24px auto 16px auto;
+            background: rgba(20,20,36,0.94);
         }
         #leaderboard {
             margin: 15px auto 20px auto;
@@ -40,9 +40,10 @@
             font-size: 18px;
             font-weight: bold;
         }
-        @media (max-width: 430px) {
-            canvas { width: 95vw !important; height: 60vw !important; }
-            #leaderboard { width: 95vw; }
+        /* Pour mobile */
+        @media (max-width: 600px) {
+            canvas { width: 100vw !important; height: 62vw !important; max-width: 96vw; }
+            #leaderboard { width: 98vw; font-size: 14px; }
         }
     </style>
 </head>
@@ -51,9 +52,9 @@
     <div id="userBar"></div>
     <audio id="bgMusic" src="./music.mp3" autoplay loop></audio>
     <div>
-        <span id="score">Score: 0</span> | 
-        <span id="lines">Lignes: 0</span> | 
-        <span id="level">Niveau: 1</span> | 
+        <span id="score">Score: 0</span> |
+        <span id="lines">Lignes: 0</span> |
+        <span id="level">Niveau: 1</span> |
         <span id="timer">Temps: 0s</span>
     </div>
     <button onclick="restartGame()">Redémarrer</button>
@@ -66,478 +67,435 @@
         </table>
     </div>
     <script>
-    // --- ANTI-SCROLL ---
-    function preventArrowScroll(e) {
-        if (
-            ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)
-        ) {
-            e.preventDefault();
-            return false;
-        }
-    }
-    window.addEventListener("keydown", preventArrowScroll, { passive: false });
-    document.addEventListener("keydown", preventArrowScroll, { passive: false });
-    const canvas = document.getElementById('tetris');
-    window.addEventListener("touchmove", function(e) {
-        if (e.target === canvas) e.preventDefault();
-    }, { passive: false });
+        // === CONFIG JSONBIN ===
+        const API_KEY = "$2a$10$QaIl/jNblmE41X0hexsVMeqBDs68V0Hpu9nSNXw7BYEcYiVWEHd4K";
+        const BIN_ID = "6825bd578561e97a5014584f";
+        const BIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+        let leaderboard = [];
+        let username = null;
 
-    // --- CONFIG JSONBIN ---
-    const API_KEY = "$2a$10$QaIl/jNblmE41X0hexsVMeqBDs68V0Hpu9nSNXw7BYEcYiVWEHd4K";
-    const BIN_ID = "6825bd578561e97a5014584f";
-    const BIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
-    let leaderboard = [];
-    let username = null;
-
-    function askUsername(force) {
-        username = localStorage.getItem('tetrisUser');
-        if (!username || force) {
-            username = prompt("Entrez votre pseudo pour le classement :", username || "");
-            if (!username) username = "Anonyme";
-            localStorage.setItem('tetrisUser', username);
-        }
-        document.getElementById('userBar').textContent = `Tu joues en tant que : ${username}`;
-    }
-    askUsername(true);
-
-    function renderLeaderboard() {
-        leaderboard.sort((a, b) => b.score - a.score);
-        let tbody = document.querySelector('#lbTable tbody');
-        tbody.innerHTML = "";
-        leaderboard.slice(0, 10).forEach((entry, idx) => {
-            let row = document.createElement('tr');
-            row.innerHTML = `<td>${idx + 1}</td><td>${entry.user}</td><td>${entry.score}</td>`;
-            tbody.appendChild(row);
-        });
-    }
-
-    function fetchLeaderboard() {
-        fetch(BIN_URL, { headers: { "X-Master-Key": API_KEY } })
-        .then(res => res.json())
-        .then(data => {
-            leaderboard = data.record.scores || [];
-            renderLeaderboard();
-        });
-    }
-
-    function updateLeaderboard(newScore) {
-        let found = false;
-        leaderboard = leaderboard.map(entry => {
-            if (entry.user === username) {
-                found = true;
-                return { user: username, score: Math.max(newScore, entry.score) };
+        // Demande pseudo utilisateur
+        function askUsername(force) {
+            username = localStorage.getItem('tetrisUser');
+            if (!username || force) {
+                username = prompt("Entrez votre pseudo pour le classement :", username || "");
+                if (!username) username = "Anonyme";
+                localStorage.setItem('tetrisUser', username);
             }
-            return entry;
-        });
-        if (!found) leaderboard.push({ user: username, score: newScore });
-        fetch(BIN_URL, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-                "X-Master-Key": API_KEY
-            },
-            body: JSON.stringify({ scores: leaderboard })
-        }).then(() => renderLeaderboard());
-    }
-
-    // --- TETRIS ---
-    const dpr = window.devicePixelRatio || 1;
-    // Canvas retina
-    function resizeCanvas() {
-        const width = 340, height = 400;
-        canvas.width = width * dpr;
-        canvas.height = height * dpr;
-        canvas.style.width = width + "px";
-        canvas.style.height = height + "px";
-        context.setTransform(1,0,0,1,0,0);
-        context.scale(dpr * 20, dpr * 20);
-    }
-    const context = canvas.getContext('2d');
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
-
-    const arena = createMatrix(17, 20);
-    const player = { pos: { x: 5, y: 0 }, matrix: null, score: 0, lines: 0, level: 1 };
-    const scoreDisplay = document.getElementById('score');
-    const linesDisplay = document.getElementById('lines');
-    const levelDisplay = document.getElementById('level');
-    const timerDisplay = document.getElementById('timer');
-
-    let startTime = Date.now();
-    let dropInterval = 600;
-    let pieceBag = [];
-    let paused = false;
-    let isGameOver = false;
-
-    function randomPieceType() {
-        if (pieceBag.length === 0) {
-            pieceBag = 'TOLJISZ'.split('');
-            for (let i = pieceBag.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [pieceBag[i], pieceBag[j]] = [pieceBag[j], pieceBag[i]];
-            }
+            document.getElementById('userBar').textContent = `Tu joues en tant que : ${username}`;
         }
-        return pieceBag.pop();
-    }
-
-    function restartGame() {
         askUsername(true);
-        arena.forEach(row => row.fill(0));
-        player.score = 0;
-        player.lines = 0;
-        player.level = 1;
-        dropInterval = 600;
-        updateMusicSpeed();
-        playerReset();
-        updateScore();
-        startTime = Date.now();
-        paused = false;
-        isGameOver = false;
-        document.getElementById('gameOverMsg')?.remove();
-    }
 
-    function updateMusicSpeed() {
-        const audio = document.getElementById('bgMusic');
-        audio.playbackRate = 1 + (player.level - 1) * 0.1;
-    }
-
-    function updateTimer() {
-        if (!paused && !isGameOver) {
-            const elapsed = Math.floor((Date.now() - startTime) / 1000);
-            timerDisplay.textContent = `Temps: ${elapsed}s`;
+        // === Leaderboard ===
+        function renderLeaderboard() {
+            leaderboard.sort((a, b) => b.score - a.score);
+            let tbody = document.querySelector('#lbTable tbody');
+            tbody.innerHTML = "";
+            leaderboard.slice(0, 10).forEach((entry, idx) => {
+                let row = document.createElement('tr');
+                row.innerHTML = `<td>${idx + 1}</td><td>${entry.user}</td><td>${entry.score}</td>`;
+                tbody.appendChild(row);
+            });
         }
-    }
-    setInterval(updateTimer, 1000);
 
-    function createMatrix(w, h) {
-        const matrix = [];
-        while (h--) matrix.push(new Array(w).fill(0));
-        return matrix;
-    }
-
-    function createPiece(type) {
-        switch (type) {
-            case 'T': return [[0,0,0],[1,1,1],[0,1,0]];
-            case 'O': return [[2,2],[2,2]];
-            case 'L': return [[0,3,0],[0,3,0],[0,3,3]];
-            case 'J': return [[0,4,0],[0,4,0],[4,4,0]];
-            case 'I': return [[0,5,0,0],[0,5,0,0],[0,5,0,0],[0,5,0,0]];
-            case 'S': return [[0,6,6],[6,6,0],[0,0,0]];
-            case 'Z': return [[7,7,0],[0,7,7],[0,0,0]];
+        function fetchLeaderboard() {
+            fetch(BIN_URL, { headers: { "X-Master-Key": API_KEY } })
+            .then(res => res.json())
+            .then(data => {
+                leaderboard = data.record.scores || [];
+                renderLeaderboard();
+            });
         }
-    }
 
-    // --- Effet graphique amélioré pour les pièces ---
-    function drawBlock(x, y, color) {
-        context.save();
-        context.beginPath();
-        context.moveTo(x + 0.12, y + 0.12);
-        context.arcTo(x + 0.88, y + 0.12, x + 0.88, y + 0.88, 0.20);
-        context.arcTo(x + 0.88, y + 0.88, x + 0.12, y + 0.88, 0.20);
-        context.arcTo(x + 0.12, y + 0.88, x + 0.12, y + 0.12, 0.20);
-        context.arcTo(x + 0.12, y + 0.12, x + 0.88, y + 0.12, 0.20);
-        context.closePath();
+        function updateLeaderboard(newScore) {
+            let found = false;
+            leaderboard = leaderboard.map(entry => {
+                if (entry.user === username) {
+                    found = true;
+                    return { user: username, score: Math.max(newScore, entry.score) };
+                }
+                return entry;
+            });
+            if (!found) leaderboard.push({ user: username, score: newScore });
+            fetch(BIN_URL, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Master-Key": API_KEY
+                },
+                body: JSON.stringify({ scores: leaderboard })
+            }).then(() => renderLeaderboard());
+        }
 
-        // Glow
-        context.shadowColor = color;
-        context.shadowBlur = 15;
-        // Fond
-        context.fillStyle = color + "EE";
-        context.fill();
+        // === TETRIS GAME ===
+        const canvas = document.getElementById('tetris');
+        const context = canvas.getContext('2d');
+        context.scale(20, 20);
 
-        // Bords "néon"
-        context.shadowBlur = 30;
-        context.strokeStyle = "#fff8";
-        context.lineWidth = 0.08;
-        context.stroke();
-
-        // Inner light
-        context.shadowBlur = 0;
-        context.globalAlpha = 0.75;
-        context.beginPath();
-        context.arc(x + 0.48, y + 0.48, 0.28, 0, 2 * Math.PI);
-        context.fillStyle = "#fff4";
-        context.fill();
-
-        context.globalAlpha = 1;
-        context.restore();
-    }
-
-    function drawMatrix(matrix, offset) {
-        const colors = [null, '#4B0082', '#6A0DAD', '#7B68EE', '#8A2BE2', '#00BFFF', '#1E90FF', '#4169E1'];
-        matrix.forEach((row, y) => row.forEach((value, x) => {
-            if (value !== 0) {
-                drawBlock(x + offset.x, y + offset.y, colors[value]);
+        // Palette Néon (bleu/violet/cyan)
+        const blockStyles = [
+            null,
+            { // I
+                fill: "rgba(45,181,255,0.94)", edge: "#00d4ff", glow: "#7ef9ff", shadow: "#015c89"
+            },
+            { // O
+                fill: "rgba(140,79,255,0.94)", edge: "#7f3fff", glow: "#a86afd", shadow: "#332254"
+            },
+            { // T
+                fill: "rgba(177,51,232,0.92)", edge: "#c052f7", glow: "#f2a7ff", shadow: "#591385"
+            },
+            { // S
+                fill: "rgba(70,134,255,0.92)", edge: "#1e90ff", glow: "#87b6ff", shadow: "#113c60"
+            },
+            { // Z
+                fill: "rgba(151,65,234,0.95)", edge: "#883bc0", glow: "#e278fa", shadow: "#4a1355"
+            },
+            { // L
+                fill: "rgba(0,222,255,0.93)", edge: "#3ff2ff", glow: "#88fff6", shadow: "#12677d"
+            },
+            { // J
+                fill: "rgba(80,62,255,0.93)", edge: "#415aff", glow: "#84a6ff", shadow: "#121656"
             }
-        }));
-    }
+        ];
 
-    function merge(arena, player) {
-        player.matrix.forEach((row, y) => row.forEach((value, x) => {
-            if (value !== 0) arena[y + player.pos.y][x + player.pos.x] = value;
-        }));
-    }
+        // Plateau et joueur
+        const arena = createMatrix(17, 20);
+        const player = { pos: { x: 5, y: 0 }, matrix: null, score: 0, lines: 0, level: 1 };
+        const scoreDisplay = document.getElementById('score');
+        const linesDisplay = document.getElementById('lines');
+        const levelDisplay = document.getElementById('level');
+        const timerDisplay = document.getElementById('timer');
 
-    function collide(arena, player) {
-        const m = player.matrix;
-        const o = player.pos;
-        for (let y = 0; y < m.length; ++y) {
-            for (let x = 0; x < m[y].length; ++x) {
-                if (m[y][x] !== 0) {
-                    if (o.x + x < 0 || o.x + x >= arena[0].length || o.y + y >= arena.length) {
-                        return true;
-                    }
-                    if (arena[o.y + y] && arena[o.y + y][o.x + x] !== 0) {
-                        return true;
-                    }
+        let startTime = Date.now();
+        let dropInterval = 600;
+        let paused = false;
+        let pieceBag = [];
+
+        function randomPieceType() {
+            if (pieceBag.length === 0) {
+                pieceBag = 'IOTSZLJ'.split('');
+                for (let i = pieceBag.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [pieceBag[i], pieceBag[j]] = [pieceBag[j], pieceBag[i]];
                 }
             }
+            return pieceBag.pop();
         }
-        return false;
-    }
 
-    function arenaSweep() {
-        let rowCount = 1;
-        outer: for (let y = arena.length - 1; y >= 0; y--) {
-            for (let x = 0; x < arena[y].length; x++) {
-                if (arena[y][x] === 0) continue outer;
-            }
-            const row = arena.splice(y, 1)[0].fill(0);
-            arena.unshift(row);
-            y++;
-            player.score += rowCount * 100;
-            player.lines++;
-            if (player.lines % 6 === 0) {
-                player.level++;
-                dropInterval = Math.max(50, dropInterval - 50);
-                updateMusicSpeed();
-                showLevelAnimation();
-            }
-            rowCount *= 2;
-        }
-    }
-
-    function playerDrop() {
-        if (paused || isGameOver) return;
-        player.pos.y++;
-        if (collide(arena, player)) {
-            player.pos.y--;
-            merge(arena, player);
-            arenaSweep();
-            if (leaderboard.length === 0) fetchLeaderboard();
-            let prev = leaderboard.find(entry => entry.user === username);
-            if (!prev || player.score > prev.score) {
-                updateLeaderboard(player.score);
-            }
-            updateScore();
-            playerReset();
-        }
-        dropCounter = 0;
-    }
-
-    function playerReset() {
-        player.matrix = createPiece(randomPieceType());
-        player.pos.y = 0;
-        player.pos.x = (arena[0].length / 2 | 0) - (player.matrix[0].length / 2 | 0);
-        if (collide(arena, player)) {
+        function restartGame() {
+            askUsername(true);
             arena.forEach(row => row.fill(0));
             player.score = 0;
             player.lines = 0;
             player.level = 1;
             dropInterval = 600;
             updateMusicSpeed();
-            isGameOver = true;
-            showGameOver();
+            playerReset();
+            updateScore();
+            startTime = Date.now();
         }
-    }
 
-    function updateScore() {
-        scoreDisplay.textContent = `Score: ${player.score}`;
-        linesDisplay.textContent = `Lignes: ${player.lines}`;
-        levelDisplay.textContent = `Niveau: ${player.level}`;
-    }
+        function updateMusicSpeed() {
+            const audio = document.getElementById('bgMusic');
+            audio.playbackRate = 1 + (player.level - 1) * 0.1;
+        }
 
-    function rotate(matrix, dir = 1) {
-        for (let y = 0; y < matrix.length; ++y)
-            for (let x = 0; x < y; ++x)
-                [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
-        dir > 0 ? matrix.forEach(row => row.reverse()) : matrix.reverse();
-    }
+        function updateTimer() {
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            timerDisplay.textContent = `Temps: ${elapsed}s`;
+        }
+        setInterval(updateTimer, 1000);
 
-    document.addEventListener('keydown', event => {
-        if (paused || isGameOver) return;
-        if (event.key === 'ArrowLeft') {
-            player.pos.x--;
-            if (collide(arena, player)) player.pos.x++;
-        } else if (event.key === 'ArrowRight') {
-            player.pos.x++;
-            if (collide(arena, player)) player.pos.x--;
-        } else if (event.key === 'ArrowDown') {
-            playerDrop();
-        } else if (event.key === ' ') {
-            rotate(player.matrix);
+        function createMatrix(w, h) {
+            const matrix = [];
+            while (h--) matrix.push(new Array(w).fill(0));
+            return matrix;
+        }
+
+        function createPiece(type) {
+            switch (type) {
+                case 'T': return [[0,0,0],[3,3,3],[0,3,0]];
+                case 'O': return [[2,2],[2,2]];
+                case 'L': return [[0,0,5],[5,5,5],[0,0,0]];
+                case 'J': return [[6,0,0],[6,6,6],[0,0,0]];
+                case 'I': return [[0,1,0,0],[0,1,0,0],[0,1,0,0],[0,1,0,0]];
+                case 'S': return [[0,4,4],[4,4,0],[0,0,0]];
+                case 'Z': return [[7,7,0],[0,7,7],[0,0,0]];
+            }
+        }
+
+        function drawBlock(x, y, style) {
+            // Néon glass block effect (bord+fond+glow+reflet)
+            context.save();
+            context.beginPath();
+            context.rect(x, y, 1, 1);
+            context.shadowColor = style.glow;
+            context.shadowBlur = 18;
+            context.fillStyle = style.fill;
+            context.fill();
+            context.shadowBlur = 0;
+
+            // Reflet diagonal
+            context.globalAlpha = 0.5;
+            context.fillStyle = "#fff";
+            context.beginPath();
+            context.moveTo(x+0.2, y+0.15);
+            context.lineTo(x+0.8, y+0.1);
+            context.lineTo(x+0.5, y+0.4);
+            context.closePath();
+            context.fill();
+            context.globalAlpha = 1;
+
+            // Bord néon
+            context.lineWidth = 0.11;
+            context.strokeStyle = style.edge;
+            context.stroke();
+
+            // Inner shadow
+            context.lineWidth = 0.12;
+            context.globalAlpha = 0.40;
+            context.strokeStyle = style.shadow;
+            context.strokeRect(x+0.07, y+0.07, 0.86, 0.86);
+            context.globalAlpha = 1;
+            context.restore();
+        }
+
+        function drawMatrix(matrix, offset) {
+            matrix.forEach((row, y) =>
+                row.forEach((value, x) => {
+                    if (value !== 0) {
+                        const style = blockStyles[value % blockStyles.length] || blockStyles[1];
+                        drawBlock(x + offset.x, y + offset.y, style);
+                    }
+                })
+            );
+        }
+
+        function merge(arena, player) {
+            player.matrix.forEach((row, y) => row.forEach((value, x) => {
+                if (value !== 0) arena[y + player.pos.y][x + player.pos.x] = value;
+            }));
+        }
+
+        function collide(arena, player) {
+            const m = player.matrix, o = player.pos;
+            for (let y = 0; y < m.length; ++y) {
+                for (let x = 0; x < m[y].length; ++x) {
+                    if (m[y][x] !== 0) {
+                        if (o.x + x < 0 || o.x + x >= arena[0].length || o.y + y >= arena.length) {
+                            return true;
+                        }
+                        if (arena[o.y + y] && arena[o.y + y][o.x + x] !== 0) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        function arenaSweep() {
+            let rowCount = 1;
+            outer: for (let y = arena.length - 1; y >= 0; y--) {
+                for (let x = 0; x < arena[y].length; x++) {
+                    if (arena[y][x] === 0) continue outer;
+                }
+                const row = arena.splice(y, 1)[0].fill(0);
+                arena.unshift(row);
+                y++;
+                player.score += rowCount * 100;
+                player.lines++;
+                if (player.lines % 6 === 0) {
+                    player.level++;
+                    dropInterval = Math.max(50, dropInterval - 50);
+                    updateMusicSpeed();
+                    // Animation up
+                    showLevelUpAnim(player.level);
+                }
+                rowCount *= 2;
+            }
+        }
+
+        function playerDrop() {
+            if (paused) return;
+            player.pos.y++;
             if (collide(arena, player)) {
-                player.pos.x++;
-                if (collide(arena, player)) player.pos.x -= 2;
-                if (collide(arena, player)) rotate(player.matrix, -1);
+                player.pos.y--;
+                merge(arena, player);
+                arenaSweep();
+                if (leaderboard.length === 0) fetchLeaderboard();
+                let prev = leaderboard.find(entry => entry.user === username);
+                if (!prev || player.score > prev.score) {
+                    updateLeaderboard(player.score);
+                }
+                updateScore();
+                playerReset();
             }
-        } else if (event.key === 'p' || event.key === 'P') {
-            paused = !paused;
-            showPauseOverlay(paused);
+            dropCounter = 0;
         }
-    });
 
-    // Pause bouton
-    let pauseBtn = document.createElement('button');
-    pauseBtn.textContent = "Pause (P)";
-    pauseBtn.style.margin = "10px";
-    pauseBtn.onclick = () => {
-        paused = !paused;
-        showPauseOverlay(paused);
-    };
-    document.body.insertBefore(pauseBtn, document.getElementById('leaderboard'));
-
-    function showPauseOverlay(pause) {
-        let old = document.getElementById('pauseOverlay');
-        if (pause) {
-            if (!old) {
-                let div = document.createElement('div');
-                div.id = "pauseOverlay";
-                div.style.position = "fixed";
-                div.style.top = 0;
-                div.style.left = 0;
-                div.style.width = "100vw";
-                div.style.height = "100vh";
-                div.style.background = "rgba(0,0,0,0.60)";
-                div.style.display = "flex";
-                div.style.alignItems = "center";
-                div.style.justifyContent = "center";
-                div.style.zIndex = 50;
-                div.style.fontSize = "3rem";
-                div.style.color = "#fff";
-                div.innerHTML = "<b>⏸️ PAUSE</b>";
-                document.body.appendChild(div);
+        function playerReset() {
+            player.matrix = createPiece(randomPieceType());
+            player.pos.y = 0;
+            player.pos.x = (arena[0].length / 2 | 0) - (player.matrix[0].length / 2 | 0);
+            if (collide(arena, player)) {
+                showGameOver();
+                arena.forEach(row => row.fill(0));
+                player.score = 0;
+                player.lines = 0;
+                player.level = 1;
+                dropInterval = 600;
+                updateMusicSpeed();
             }
-        } else if (old) {
-            old.remove();
         }
-    }
 
-    function showGameOver() {
-        let old = document.getElementById('gameOverMsg');
-        if (old) old.remove();
-        let div = document.createElement('div');
-        div.id = "gameOverMsg";
-        div.style.position = "fixed";
-        div.style.top = 0;
-        div.style.left = 0;
-        div.style.width = "100vw";
-        div.style.height = "100vh";
-        div.style.background = "rgba(18,0,32,0.75)";
-        div.style.display = "flex";
-        div.style.alignItems = "center";
-        div.style.justifyContent = "center";
-        div.style.zIndex = 100;
-        div.style.fontSize = "2.3rem";
-        div.style.color = "#fff";
-        div.innerHTML = "<b>💀 GAME OVER</b><br><button style='margin-top:20px;font-size:1.3rem;padding:7px 24px;border-radius:8px;background:#6A0DAD;color:white;border:none;' onclick='restartGame()'>Rejouer</button>";
-        document.body.appendChild(div);
-    }
-
-    // Animation level up
-    function showLevelAnimation() {
-        let div = document.createElement('div');
-        div.id = "levelAnim";
-        div.style.position = "fixed";
-        div.style.top = "40%";
-        div.style.left = 0;
-        div.style.width = "100vw";
-        div.style.textAlign = "center";
-        div.style.fontSize = "2.8rem";
-        div.style.color = "#00BFFF";
-        div.style.fontWeight = "bold";
-        div.style.textShadow = "0 0 14px #6A0DAD, 0 0 32px #220044";
-        div.innerHTML = `Niveau ${player.level} !`;
-        div.style.opacity = 1;
-        div.style.transition = "opacity 1.2s";
-        document.body.appendChild(div);
-        setTimeout(() => {
-            div.style.opacity = 0;
-            setTimeout(() => div.remove(), 1200);
-        }, 900);
-    }
-
-    // TOUCH for mobile
-    let touchStartX, touchStartY;
-    canvas.addEventListener('touchstart', function(e) {
-        if (paused || isGameOver) return;
-        if (e.touches.length === 1) {
-            touchStartX = e.touches[0].clientX;
-            touchStartY = e.touches[0].clientY;
+        function updateScore() {
+            scoreDisplay.textContent = `Score: ${player.score}`;
+            linesDisplay.textContent = `Lignes: ${player.lines}`;
+            levelDisplay.textContent = `Niveau: ${player.level}`;
         }
-    }, { passive: false });
-    canvas.addEventListener('touchend', function(e) {
-        touchStartX = touchStartY = null;
-    });
-    canvas.addEventListener('touchmove', function(e) {
-        if (paused || isGameOver) return;
-        if (!touchStartX || !touchStartY) return;
-        let dx = e.touches[0].clientX - touchStartX;
-        let dy = e.touches[0].clientY - touchStartY;
-        if (Math.abs(dx) > Math.abs(dy)) {
-            // swipe horizontal
-            if (dx > 20) {
-                player.pos.x++;
-                if (collide(arena, player)) player.pos.x--;
-                touchStartX = e.touches[0].clientX;
-            } else if (dx < -20) {
+
+        // --- Pause & Game Over ---
+        let pauseOverlay = null, gameOverOverlay = null;
+        function showPause(pause) {
+            if (!pauseOverlay) {
+                pauseOverlay = document.createElement("div");
+                pauseOverlay.style.position = "fixed";
+                pauseOverlay.style.left = pauseOverlay.style.top = 0;
+                pauseOverlay.style.width = pauseOverlay.style.height = "100vw";
+                pauseOverlay.style.background = "rgba(17,12,40,0.85)";
+                pauseOverlay.style.zIndex = "50";
+                pauseOverlay.style.display = "flex";
+                pauseOverlay.style.alignItems = "center";
+                pauseOverlay.style.justifyContent = "center";
+                pauseOverlay.innerHTML = "<span style='color:#00bfff;font-size:2.5em;text-shadow:0 0 12px #6A0DAD;'>⏸ PAUSE</span>";
+                document.body.appendChild(pauseOverlay);
+            }
+            pauseOverlay.style.display = pause ? "flex" : "none";
+        }
+        function showGameOver() {
+            if (!gameOverOverlay) {
+                gameOverOverlay = document.createElement("div");
+                gameOverOverlay.style.position = "fixed";
+                gameOverOverlay.style.left = gameOverOverlay.style.top = 0;
+                gameOverOverlay.style.width = gameOverOverlay.style.height = "100vw";
+                gameOverOverlay.style.background = "rgba(30,8,60,0.91)";
+                gameOverOverlay.style.zIndex = "80";
+                gameOverOverlay.style.display = "flex";
+                gameOverOverlay.style.alignItems = "center";
+                gameOverOverlay.style.justifyContent = "center";
+                gameOverOverlay.innerHTML = "<span style='color:#ff77ee;font-size:2.2em;text-shadow:0 0 18px #00c9ff;'>💀 GAME OVER</span>";
+                document.body.appendChild(gameOverOverlay);
+            }
+            gameOverOverlay.style.display = "flex";
+            setTimeout(() => {
+                gameOverOverlay.style.display = "none";
+            }, 1800);
+        }
+        function showLevelUpAnim(level) {
+            let el = document.createElement("div");
+            el.style.position = "fixed";
+            el.style.left = el.style.top = 0;
+            el.style.width = el.style.height = "100vw";
+            el.style.background = "rgba(0,0,32,0.01)";
+            el.style.zIndex = "70";
+            el.style.display = "flex";
+            el.style.alignItems = "center";
+            el.style.justifyContent = "center";
+            el.innerHTML = `<span style='color:#87f3ff;font-size:2em;text-shadow:0 0 24px #6A0DAD;'>🚀 NIVEAU ${level}</span>`;
+            document.body.appendChild(el);
+            setTimeout(() => document.body.removeChild(el), 1500);
+        }
+
+        // --- CONTROLS ---
+        document.addEventListener('keydown', event => {
+            if (event.repeat) return; // ignore long press
+            if (event.key === 'p' || event.key === 'P') {
+                paused = !paused;
+                showPause(paused);
+                // Ne touche pas à la musique sur pause !
+                return event.preventDefault();
+            }
+            if (paused) return event.preventDefault();
+
+            if (event.key === 'ArrowLeft') {
                 player.pos.x--;
                 if (collide(arena, player)) player.pos.x++;
-                touchStartX = e.touches[0].clientX;
-            }
-        } else {
-            // swipe vertical
-            if (dy > 30) {
-                playerDrop();
-                touchStartY = e.touches[0].clientY;
-            }
-        }
-    }, { passive: false });
-    canvas.addEventListener('touchend', function(e) {
-        if (paused || isGameOver) return;
-        // si peu de déplacement, on considère que c'est un tap
-        if (!touchStartX && !touchStartY) {
-            rotate(player.matrix);
-            if (collide(arena, player)) {
+                event.preventDefault();
+            } else if (event.key === 'ArrowRight') {
                 player.pos.x++;
-                if (collide(arena, player)) player.pos.x -= 2;
-                if (collide(arena, player)) rotate(player.matrix, -1);
+                if (collide(arena, player)) player.pos.x--;
+                event.preventDefault();
+            } else if (event.key === 'ArrowDown') {
+                playerDrop();
+                event.preventDefault();
+            } else if (event.key === ' ') {
+                rotate(player.matrix);
+                if (collide(arena, player)) {
+                    player.pos.x++;
+                    if (collide(arena, player)) player.pos.x -= 2;
+                    if (collide(arena, player)) rotate(player.matrix, -1);
+                }
+                event.preventDefault();
             }
-        }
-    });
+        });
 
-    let dropCounter = 0, lastTime = 0;
-    function update(time = 0) {
-        if (paused || isGameOver) {
+        // Empêche le scroll sur flèches (mobile & desktop)
+        window.addEventListener("keydown", function(e) {
+            if(["ArrowDown","ArrowUp","ArrowLeft","ArrowRight"," "].includes(e.key)){
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        // Mobile pause button
+        if (window.innerWidth < 700) {
+            let btn = document.createElement('button');
+            btn.innerHTML = "⏸ Pause";
+            btn.style.position = "fixed";
+            btn.style.bottom = "2vw";
+            btn.style.right = "3vw";
+            btn.style.zIndex = 100;
+            btn.style.background = "#191940";
+            btn.style.color = "#a8f6f7";
+            btn.style.border = "2px solid #00eaff";
+            btn.style.borderRadius = "10px";
+            btn.style.padding = "12px 22px";
+            btn.style.fontWeight = "bold";
+            btn.style.boxShadow = "0 0 20px #6A0DAD44";
+            btn.onclick = function() {
+                paused = !paused;
+                showPause(paused);
+            };
+            document.body.appendChild(btn);
+        }
+
+        // Lancer la musique sur premier clic (policy navigateur)
+        document.addEventListener('click', () => {
+            const audio = document.getElementById('bgMusic');
+            if (audio.paused) audio.play().catch(()=>{});
+        }, { once: true });
+
+        let dropCounter = 0, lastTime = 0;
+        function update(time = 0) {
+            if (!paused) {
+                const deltaTime = time - lastTime;
+                lastTime = time;
+                dropCounter += deltaTime;
+                if (dropCounter > dropInterval) playerDrop();
+            }
+            // Grille stylée
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            // Dessin du plateau
+            drawMatrix(arena, { x: 0, y: 0 });
+            // Dessin du joueur
+            drawMatrix(player.matrix, player.pos);
             requestAnimationFrame(update);
-            return;
         }
-        const deltaTime = time - lastTime;
-        lastTime = time;
-        dropCounter += deltaTime;
-        if (dropCounter > dropInterval) playerDrop();
 
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        drawMatrix(arena, { x: 0, y: 0 });
-        drawMatrix(player.matrix, player.pos);
-
-        requestAnimationFrame(update);
-    }
-
-    fetchLeaderboard();
-    playerReset();
-    updateScore();
-    update();
+        fetchLeaderboard();
+        playerReset();
+        updateScore();
+        update();
     </script>
 </body>
 </html>
