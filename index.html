@@ -348,7 +348,7 @@ document.addEventListener('touchstart', unlockAudio, {once: true});
     }
 
    function randomNeonColor(baseIdx) {
-    // Palette de base (bleu/violet), nuances autour
+    // Palette bleu/violet
     const palettes = [
         {r: 75, g: 0, b: 130},   // indigo
         {r: 106, g: 13, b: 173}, // violet néon
@@ -360,40 +360,53 @@ document.addEventListener('touchstart', unlockAudio, {once: true});
         {r: 70, g: 130, b: 180}, // steel blue
         {r: 111, g: 60, b: 180}  // bleu/violet intermédiaire
     ];
-    // Décale chaque pièce de quelques points pour l'effet nuance
     let base = palettes[baseIdx % palettes.length];
-    let vr = Math.floor(Math.random() * 36) - 18; // -18..+18
+    let vr = Math.floor(Math.random() * 36) - 18;
     let vg = Math.floor(Math.random() * 30) - 15;
     let vb = Math.floor(Math.random() * 36) - 18;
-    return `rgba(${Math.max(0,Math.min(255,base.r+vr))},${Math.max(0,Math.min(255,base.g+vg))},${Math.max(0,Math.min(255,base.b+vb))},0.72)`;
+    // La couleur principale
+    let color = `rgba(${Math.max(0,Math.min(255,base.r+vr))},${Math.max(0,Math.min(255,base.g+vg))},${Math.max(0,Math.min(255,base.b+vb))},0.70)`;
+    // Le glow doit être bien vif (on ne met pas d'alpha)
+    let glow = `rgba(${Math.max(0,Math.min(255,base.r+vr))},${Math.max(0,Math.min(255,base.g+vg))},${Math.max(0,Math.min(255,base.b+vb))},1)`;
+    return {color, glow};
 }
 
 function drawMatrix(matrix, offset) {
-    // On mémorise les couleurs utilisées pour chaque valeur de pièce pour garder la même teinte pour une pièce
     if (!drawMatrix.colorMap) drawMatrix.colorMap = {};
     matrix.forEach((row, y) => row.forEach((value, x) => {
         if (value !== 0) {
-            // Associe une couleur à chaque valeur de pièce
             if (!drawMatrix.colorMap[value]) {
                 drawMatrix.colorMap[value] = randomNeonColor(value + Math.floor(Math.random()*3));
             }
-            let color = drawMatrix.colorMap[value];
+            let {color, glow} = drawMatrix.colorMap[value];
+            // 1. D'abord le GLOW/halo
             context.save();
-            context.globalAlpha = 0.75;
-            context.shadowColor = color.replace('0.72','1'); // version non transparente pour le glow
-            context.shadowBlur = 16; // Glow léger
+            context.globalAlpha = 0.78;
+            context.shadowColor = glow;
+            context.shadowBlur = 22;  // Plus grand = halo large
             context.fillStyle = color;
             context.fillRect(x + offset.x, y + offset.y, 1, 1);
-            context.shadowBlur = 0;
+            context.restore();
+            // 2. Puis le noyau plus net
+            context.save();
+            context.globalAlpha = 0.87;
+            context.shadowColor = glow;
+            context.shadowBlur = 6;
+            context.fillStyle = color;
+            context.fillRect(x + offset.x, y + offset.y, 1, 1);
+            context.restore();
+            // 3. Enfin le contour blanc doux
+            context.save();
             context.globalAlpha = 1.0;
-            // Contour subtil néon
-            context.strokeStyle = "#e2d7fa";
-            context.lineWidth = 0.08;
+            context.shadowBlur = 0;
+            context.strokeStyle = "#eaefff";
+            context.lineWidth = 0.09;
             context.strokeRect(x + offset.x, y + offset.y, 1, 1);
             context.restore();
         }
     }));
 }
+
 
 
     function merge(arena, player) {
