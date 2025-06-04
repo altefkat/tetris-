@@ -367,6 +367,14 @@ document.addEventListener('touchstart', unlockAudio, {once: true});
         }
     }
 
+    function randomEffect() {
+    let r = Math.random();
+    if (r < 0.12) return "bonus";   // 12% de chance
+    if (r < 0.22) return "malus";   // 10% de chance
+    if (r < 0.27) return "speedup"; // 5% de chance
+    return null;                    // 73% des cas : rien
+    }
+
    function randomNeonColor(baseIdx) {
     // Palette bleu/violet
     const palettes = [
@@ -393,40 +401,52 @@ document.addEventListener('touchstart', unlockAudio, {once: true});
 
 function drawMatrix(matrix, offset) {
     if (!drawMatrix.colorMap) drawMatrix.colorMap = {};
+    let effect = player.effect;
     matrix.forEach((row, y) => row.forEach((value, x) => {
         if (value !== 0) {
+            let baseColor, glow, contour, alpha = 0.7;
             if (!drawMatrix.colorMap[value]) {
                 drawMatrix.colorMap[value] = randomNeonColor(value + Math.floor(Math.random()*3));
             }
-            let {color, glow} = drawMatrix.colorMap[value];
-            // 1. D'abord le GLOW/halo
+            if (effect === "bonus") {
+                baseColor = "rgba(255,230,60,0.84)";
+                glow = "#fff700";
+                contour = "rgba(255, 255, 80, 0.80)";
+                alpha = 0.82;
+            } else if (effect === "malus") {
+                baseColor = "rgba(255,255,255,0.75)";
+                glow = "#fff";
+                contour = "rgba(210,40,40,0.50)";
+                alpha = 0.75;
+            } else if (effect === "speedup") {
+                baseColor = "rgba(255,110,70,0.78)";
+                glow = "#ff661a";
+                contour = "rgba(255,110,70,0.8)";
+                alpha = 0.78;
+            } else {
+                baseColor = drawMatrix.colorMap[value].color;
+                glow = drawMatrix.colorMap[value].glow;
+                contour = "rgba(180,210,255,0.33)";
+            }
             context.save();
-            context.globalAlpha = 0.78;
+            context.globalAlpha = alpha;
             context.shadowColor = glow;
-            context.shadowBlur = 22;  // Plus grand = halo large
-            context.fillStyle = color;
+            context.shadowBlur = 22;
+            context.fillStyle = baseColor;
             context.fillRect(x + offset.x, y + offset.y, 1, 1);
             context.restore();
-            // 2. Puis le noyau plus net
-            context.save();
-            context.globalAlpha = 0.87;
-            context.shadowColor = glow;
-            context.shadowBlur = 6;
-            context.fillStyle = color;
-            context.fillRect(x + offset.x, y + offset.y, 1, 1);
-            context.restore();
-           // 3. Contour subtil et moins prononcé
+            // Contour
             context.save();
             context.globalAlpha = 0.33;
             context.shadowBlur = 0;
-            context.strokeStyle = "rgba(180,210,255,1)"; // blanc bleuté très doux
-            context.lineWidth = 0.04; // plus fin
+            context.strokeStyle = contour;
+            context.lineWidth = 0.07;
             context.strokeRect(x + offset.x, y + offset.y, 1, 1);
             context.restore();
-
         }
     }));
 }
+
 
 
 
@@ -463,7 +483,16 @@ function drawMatrix(matrix, offset) {
             const row = arena.splice(y, 1)[0].fill(0);
             arena.unshift(row);
             y++;
-            player.score += rowCount * 100;
+           let gain = rowCount * 100;
+if (player.effect === "bonus") {
+    gain *= 2;
+    showBonusMsg('★ BONUS ! x2', '#fff700');
+} else if (player.effect === "malus") {
+    gain = Math.floor(gain * 0.5);
+    showBonusMsg('Malus : x0.5', '#ff3366');
+}
+player.score += gain;
+
             player.lines++;
             if (player.lines % 6 === 0) {
                 player.level++;
@@ -518,15 +547,35 @@ function drawMatrix(matrix, offset) {
 }
 
 
-    function playerReset() {
-        player.matrix = createPiece(randomPieceType());
-        player.pos.y = 0;
-        player.pos.x = (arena[0].length / 2 | 0) - (player.matrix[0].length / 2 | 0);
-        if (collide(arena, player)) {
-            isGameOver = true;
-            showGameOver();
-        }
+   function playerReset() {
+    player.matrix = createPiece(randomPieceType());
+    player.pos.y = 0;
+    player.pos.x = (arena[0].length / 2 | 0) - (player.matrix[0].length / 2 | 0);
+    player.effect = randomEffect(); // <- AJOUT
+       // Après player.effect = randomEffect(); 
+if (player.speedupCount !== undefined) {
+    player.speedupCount--;
+    if (player.speedupCount <= 0) {
+        player.speedupCount = undefined;
+        dropInterval = Math.max(50, 600 - (player.level-1) * 50);
+        showBonusMsg('Fin accélération', '#0099ff');
     }
+}
+
+
+    // Malus "speedup"
+    if (player.effect === "speedup") {
+        player.speedupCount = 10;
+        dropInterval = Math.max(40, dropInterval * 0.6);
+        showBonusMsg('⚡ Accélération !', '#ff3366');
+    }
+
+    if (collide(arena, player)) {
+        isGameOver = true;
+        showGameOver();
+    }
+}
+
 
     function updateScore() {
         scoreDisplay.textContent = `Score: ${player.score}`;
@@ -553,6 +602,23 @@ function drawMatrix(matrix, offset) {
             overlay.style.display = "none";
         }, 1000);
     }
+
+    function showBonusMsg(txt, color) {
+    let overlay = document.getElementById("levelUpOverlay");
+    let text = document.getElementById("levelUpText");
+    overlay.style.display = "flex";
+    text.textContent = txt;
+    text.style.background = color || "#fff";
+    text.style.color = "#222";
+    text.style.animation = "none";
+    void text.offsetWidth;
+    text.style.animation = null;
+    setTimeout(() => {
+        overlay.style.display = "none";
+        text.style.color = "#fff";
+        text.style.background = "";
+    }, 1200);
+}
 
     function showGameOver() {
         document.getElementById('gameOverModal').style.display = "flex";
