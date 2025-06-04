@@ -15,12 +15,13 @@
         }
         canvas {
             border: 4px solid #6A0DAD;
-            border-radius: 12px;
-            box-shadow: 0 0 20px #6A0DAD, 0 0 40px #220044;
+            border-radius: 14px;
+            box-shadow: 0 0 28px #6A0DAD, 0 0 60px #220044;
             display: block;
-            margin: 20px auto;
-            background-color: rgba(0, 0, 0, 0.7);
-            touch-action: none; /* bloque le swipe natif mobile */
+            margin: 24px auto;
+            background: rgba(20,24,40, 0.94);
+            touch-action: none;
+            transition: box-shadow 0.2s;
         }
         #leaderboard {
             margin: 15px auto 20px auto;
@@ -38,6 +39,10 @@
             margin: 10px 0;
             font-size: 18px;
             font-weight: bold;
+        }
+        @media (max-width: 430px) {
+            canvas { width: 95vw !important; height: 60vw !important; }
+            #leaderboard { width: 95vw; }
         }
     </style>
 </head>
@@ -61,7 +66,7 @@
         </table>
     </div>
     <script>
-    // === BLOQUE LE SCROLL PARTOUT ===
+    // --- ANTI-SCROLL ---
     function preventArrowScroll(e) {
         if (
             ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)
@@ -72,15 +77,14 @@
     }
     window.addEventListener("keydown", preventArrowScroll, { passive: false });
     document.addEventListener("keydown", preventArrowScroll, { passive: false });
-    // Mobile : bloque scroll au touch sur le canvas
     const canvas = document.getElementById('tetris');
     window.addEventListener("touchmove", function(e) {
         if (e.target === canvas) e.preventDefault();
     }, { passive: false });
 
-    // === CONFIG JSONBIN ===
-    const API_KEY = "$2a$10$QaIl/jNblmE41X0hexsVMeqBDs68V0Hpu9nSNXw7BYEcYiVWEHd4K"; // <-- mets ta clé
-    const BIN_ID = "6825bd578561e97a5014584f"; // <-- mets ton id
+    // --- CONFIG JSONBIN ---
+    const API_KEY = "$2a$10$QaIl/jNblmE41X0hexsVMeqBDs68V0Hpu9nSNXw7BYEcYiVWEHd4K";
+    const BIN_ID = "6825bd578561e97a5014584f";
     const BIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
     let leaderboard = [];
     let username = null;
@@ -136,10 +140,21 @@
         }).then(() => renderLeaderboard());
     }
 
-    // === TETRIS CLASSIQUE ===
-    // canvas déjà défini au dessus
+    // --- TETRIS ---
+    const dpr = window.devicePixelRatio || 1;
+    // Canvas retina
+    function resizeCanvas() {
+        const width = 340, height = 400;
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        canvas.style.width = width + "px";
+        canvas.style.height = height + "px";
+        context.setTransform(1,0,0,1,0,0);
+        context.scale(dpr * 20, dpr * 20);
+    }
     const context = canvas.getContext('2d');
-    context.scale(20, 20);
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
 
     const arena = createMatrix(17, 20);
     const player = { pos: { x: 5, y: 0 }, matrix: null, score: 0, lines: 0, level: 1 };
@@ -212,12 +227,47 @@
         }
     }
 
+    // --- Effet graphique amélioré pour les pièces ---
+    function drawBlock(x, y, color) {
+        context.save();
+        context.beginPath();
+        context.moveTo(x + 0.12, y + 0.12);
+        context.arcTo(x + 0.88, y + 0.12, x + 0.88, y + 0.88, 0.20);
+        context.arcTo(x + 0.88, y + 0.88, x + 0.12, y + 0.88, 0.20);
+        context.arcTo(x + 0.12, y + 0.88, x + 0.12, y + 0.12, 0.20);
+        context.arcTo(x + 0.12, y + 0.12, x + 0.88, y + 0.12, 0.20);
+        context.closePath();
+
+        // Glow
+        context.shadowColor = color;
+        context.shadowBlur = 15;
+        // Fond
+        context.fillStyle = color + "EE";
+        context.fill();
+
+        // Bords "néon"
+        context.shadowBlur = 30;
+        context.strokeStyle = "#fff8";
+        context.lineWidth = 0.08;
+        context.stroke();
+
+        // Inner light
+        context.shadowBlur = 0;
+        context.globalAlpha = 0.75;
+        context.beginPath();
+        context.arc(x + 0.48, y + 0.48, 0.28, 0, 2 * Math.PI);
+        context.fillStyle = "#fff4";
+        context.fill();
+
+        context.globalAlpha = 1;
+        context.restore();
+    }
+
     function drawMatrix(matrix, offset) {
         const colors = [null, '#4B0082', '#6A0DAD', '#7B68EE', '#8A2BE2', '#00BFFF', '#1E90FF', '#4169E1'];
         matrix.forEach((row, y) => row.forEach((value, x) => {
             if (value !== 0) {
-                context.fillStyle = colors[value];
-                context.fillRect(x + offset.x, y + offset.y, 1, 1);
+                drawBlock(x + offset.x, y + offset.y, colors[value]);
             }
         }));
     }
@@ -383,39 +433,42 @@
         div.style.left = 0;
         div.style.width = "100vw";
         div.style.height = "100vh";
-        div.style.background = "rgba(0,0,0,0.65)";
+        div.style.background = "rgba(18,0,32,0.75)";
         div.style.display = "flex";
         div.style.alignItems = "center";
         div.style.justifyContent = "center";
         div.style.zIndex = 100;
-        div.style.fontSize = "3rem";
+        div.style.fontSize = "2.3rem";
         div.style.color = "#fff";
-        div.innerHTML = "<b>💀 GAME OVER</b>";
+        div.innerHTML = "<b>💀 GAME OVER</b><br><button style='margin-top:20px;font-size:1.3rem;padding:7px 24px;border-radius:8px;background:#6A0DAD;color:white;border:none;' onclick='restartGame()'>Rejouer</button>";
+        document.body.appendChild(div);
+    }
+
+    // Animation level up
+    function showLevelAnimation() {
+        let div = document.createElement('div');
+        div.id = "levelAnim";
+        div.style.position = "fixed";
+        div.style.top = "40%";
+        div.style.left = 0;
+        div.style.width = "100vw";
+        div.style.textAlign = "center";
+        div.style.fontSize = "2.8rem";
+        div.style.color = "#00BFFF";
+        div.style.fontWeight = "bold";
+        div.style.textShadow = "0 0 14px #6A0DAD, 0 0 32px #220044";
+        div.innerHTML = `Niveau ${player.level} !`;
+        div.style.opacity = 1;
+        div.style.transition = "opacity 1.2s";
         document.body.appendChild(div);
         setTimeout(() => {
-            div.remove();
-        }, 2500);
+            div.style.opacity = 0;
+            setTimeout(() => div.remove(), 1200);
+        }, 900);
     }
 
-    function showLevelAnimation() {
-        let anim = document.createElement('div');
-        anim.id = "levelAnim";
-        anim.style.position = "fixed";
-        anim.style.top = "30%";
-        anim.style.left = 0;
-        anim.style.width = "100vw";
-        anim.style.textAlign = "center";
-        anim.style.fontSize = "3rem";
-        anim.style.zIndex = 80;
-        anim.style.color = "#6A0DAD";
-        anim.style.textShadow = "0 0 15px #fff, 0 0 40px #6A0DAD";
-        anim.innerHTML = `<b>Niveau ${player.level} !</b>`;
-        document.body.appendChild(anim);
-        setTimeout(() => anim.remove(), 1400);
-    }
-
-    // Touch events (pour mobile)
-    let touchStartX = null, touchStartY = null;
+    // TOUCH for mobile
+    let touchStartX, touchStartY;
     canvas.addEventListener('touchstart', function(e) {
         if (paused || isGameOver) return;
         if (e.touches.length === 1) {
@@ -450,7 +503,6 @@
             }
         }
     }, { passive: false });
-    // Tap pour tourner la piece
     canvas.addEventListener('touchend', function(e) {
         if (paused || isGameOver) return;
         // si peu de déplacement, on considère que c'est un tap
@@ -465,7 +517,6 @@
     });
 
     let dropCounter = 0, lastTime = 0;
-
     function update(time = 0) {
         if (paused || isGameOver) {
             requestAnimationFrame(update);
@@ -476,9 +527,7 @@
         dropCounter += deltaTime;
         if (dropCounter > dropInterval) playerDrop();
 
-        context.fillStyle = '#111122';
-        context.fillRect(0, 0, canvas.width, canvas.height);
-
+        context.clearRect(0, 0, canvas.width, canvas.height);
         drawMatrix(arena, { x: 0, y: 0 });
         drawMatrix(player.matrix, player.pos);
 
@@ -489,7 +538,6 @@
     playerReset();
     updateScore();
     update();
-
     </script>
 </body>
 </html>
