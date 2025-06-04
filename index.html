@@ -143,6 +143,9 @@
     <h1>Tetris pour les bg</h1>
     <div id="userBar"></div>
     <audio id="bgMusic" src="./music.mp3" preload="auto" loop></audio>
+    <audio id="soundDrop" src="pose.m4a" preload="auto"></audio>
+    <audio id="soundClear" src="ligne.m4a" preload="auto"></audio>
+
     <div>
         <span id="score">Score: 0</span> | 
         <span id="lines">Lignes: 0</span> | 
@@ -178,6 +181,16 @@
     <div id="levelUpText"></div>
 </div>
 <script>
+
+    function playSound(id) {
+    const audio = document.getElementById(id);
+    if (audio) {
+        audio.currentTime = 0;
+        audio.play().catch(()=>{});
+    }
+}
+
+    
     // 1. MUSIQUE AUTOPLAY/AUTO-UNLOCK
 window.addEventListener('load', () => {
     const audio = document.getElementById('bgMusic');
@@ -455,22 +468,48 @@ function drawMatrix(matrix, offset) {
         }
     }
 
-    function playerDrop() {
-        if (paused || isGameOver) return;
-        player.pos.y++;
-        if (collide(arena, player)) {
-            player.pos.y--;
-            merge(arena, player);
-            arenaSweep();
-            let prev = leaderboard.find(entry => entry.user === username);
-            if (!prev || player.score > prev.score) {
-                updateLeaderboard(player.score);
-            }
-            updateScore();
-            playerReset();
+ function playerDrop() {
+    if (paused || isGameOver) return;
+    player.pos.y++;
+    if (collide(arena, player)) {
+        player.pos.y--;
+        merge(arena, player);
+        playSound('soundDrop'); // <-- On joue le son drop ici !
+        arenaSweep();           // <-- On appelle la fonction qui gère les clears (en dehors)
+        let prev = leaderboard.find(entry => entry.user === username);
+        if (!prev || player.score > prev.score) {
+            updateLeaderboard(player.score);
         }
-        dropCounter = 0;
+        updateScore();
+        playerReset();
     }
+    dropCounter = 0;
+}
+
+    function arenaSweep() {
+    let rowCount = 1;
+    let linesCleared = 0;
+    outer: for (let y = arena.length - 1; y >= 0; y--) {
+        for (let x = 0; x < arena[y].length; x++) {
+            if (arena[y][x] === 0) continue outer;
+        }
+        const row = arena.splice(y, 1)[0].fill(0);
+        arena.unshift(row);
+        y++;
+        player.score += rowCount * 100;
+        player.lines++;
+        linesCleared++;
+        if (player.lines % 6 === 0) {
+            player.level++;
+            dropInterval = Math.max(50, dropInterval - 50);
+            updateMusicSpeed();
+            showLevelUp(player.level);
+        }
+        rowCount *= 2;
+    }
+    if (linesCleared > 0) playSound('soundClear');
+}
+
 
     function playerReset() {
         player.matrix = createPiece(randomPieceType());
