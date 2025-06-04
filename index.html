@@ -134,6 +134,14 @@
     <div id="levelAnim"></div>
 </div>
 <script>
+
+window.addEventListener("keydown", function(e) {
+    // Bloque scroll pour fleches (surtout bas) et barre espace (sur toute la page)
+    if(['ArrowLeft','ArrowRight','ArrowDown',' '].includes(e.key)) {
+        e.preventDefault();
+    }
+}, {passive: false});
+
     // === CONFIG JSONBIN ===
     const API_KEY = "$2a$10$QaIl/jNblmE41X0hexsVMeqBDs68V0Hpu9nSNXw7BYEcYiVWEHd4K";
     const BIN_ID = "6825bd578561e97a5014584f";
