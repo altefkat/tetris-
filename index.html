@@ -145,6 +145,7 @@
     <audio id="bgMusic" src="./music.mp3" preload="auto" loop></audio>
     <audio id="soundDrop" src="pose.m4a" preload="auto"></audio>
     <audio id="soundClear" src="ligne.m4a" preload="auto"></audio>
+    <audio id="soundLevelUp" src="levelup.m4a" preload="auto"></audio>
 
     <div>
         <span id="score">Score: 0</span> | 
@@ -194,10 +195,12 @@
 
     window.addEventListener('DOMContentLoaded', () => {
     // Volume musique (par défaut ou un peu moins fort)
-    document.getElementById('bgMusic').volume = 0.6;
+    document.getElementById('bgMusic').volume = 0.5;
     // Volume effets à fond
     document.getElementById('soundDrop').volume = 1;
     document.getElementById('soundClear').volume = 1;
+    document.getElementById('soundLevelUp').volume = 1;
+
 });
     
     // 1. MUSIQUE AUTOPLAY/AUTO-UNLOCK
@@ -550,6 +553,8 @@ player.score += gain;
             dropInterval = Math.max(50, dropInterval - 50);
             updateMusicSpeed();
             showLevelUp(player.level);
+            playSound('soundLevelUp');
+
         }
         rowCount *= 2;
     }
