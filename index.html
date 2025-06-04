@@ -5,10 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tetris Leaderboard BG</title>
     <style>
+        html, body {
+            margin: 0; padding: 0;
+            background: url('./background.png') center center / cover no-repeat;
+            min-height: 100vh;
+        }
         body {
             text-align: center;
             font-family: Arial, sans-serif;
-            background: url('./background.png') center center / cover no-repeat;
             color: #ddd;
         }
         canvas {
@@ -18,7 +22,6 @@
             display: block;
             margin: 20px auto;
             background-color: rgba(0, 0, 0, 0.7);
-            touch-action: none;
         }
         #leaderboard {
             margin: 15px auto 20px auto;
@@ -37,100 +40,66 @@
             font-size: 18px;
             font-weight: bold;
         }
-        #controls {
-            display: none;
-            margin: 10px auto 5px auto;
-            text-align: center;
+        .game-buttons {
+            margin: 10px;
         }
-        #controls button {
-            background: #1a1140;
-            border: 2px solid #6A0DAD;
-            color: #fff;
-            border-radius: 7px;
-            margin: 2px 6px;
-            font-size: 22px;
-            padding: 10px 15px;
-            box-shadow: 0 0 8px #8A2BE2;
-        }
-        @media (max-width: 650px) {
-            #controls { display: block !important; }
-            canvas { width: 96vw !important; height: 54vw !important; max-width: 98vw; }
-            #leaderboard { width: 97vw; font-size: 14px; }
-        }
-        #pauseBar {
-            margin: 8px 0 4px 0;
-            font-size: 19px;
-            color: #fff;
-            font-weight: 600;
-            transition: color 0.3s;
-        }
-        #pauseBar.paused {
-            color: #aaaaff;
-        }
-        #gameOverModal {
-            display: none;
-            position: fixed; left: 0; top: 0; width: 100vw; height: 100vh;
-            background: rgba(16,0,32,0.87);
-            align-items: center; justify-content: center; z-index: 9999;
-        }
-        #gameOverModal .modal-content {
-            background: #222045;
-            border: 3px solid #6A0DAD;
-            border-radius: 16px;
-            box-shadow: 0 0 35px #220044;
-            padding: 34px 24px 20px 24px;
-            color: #fff;
-            font-size: 20px;
-            text-align: center;
-        }
-        #gameOverModal button {
-            margin-top: 18px;
-            background: #7B68EE;
-            color: #fff;
-            border: none;
-            padding: 8px 20px;
+        .game-buttons button {
+            font-size: 16px;
+            margin: 0 6px;
+            padding: 6px 15px;
             border-radius: 8px;
-            font-size: 18px;
+            border: none;
+            background: #6A0DAD;
+            color: #fff;
+            box-shadow: 0 0 6px #8A2BE2;
             cursor: pointer;
-            box-shadow: 0 0 8px #8A2BE2;
         }
-        #overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100vw; height: 100vh;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            background: rgba(40,0,80,0.22);
-            z-index: 1000;
-            pointer-events: none;
+        .game-buttons button:active {
+            background: #41115b;
         }
-        #overlay span {
-            color: #8A2BE2;
-            font-size: 3.2rem;
+        #gameOverMsg {
+            color: #ff369a;
+            font-size: 26px;
             font-weight: bold;
-            text-shadow: 0 0 18px #fff, 0 0 25px #6A0DAD;
+            margin: 15px;
+            text-shadow: 0 0 8px #000;
+            display: none;
+        }
+        #levelAnim {
+            display: none;
+            position: absolute;
+            left: 0; right: 0; top: 30%; 
+            font-size: 42px;
+            font-weight: bold;
+            color: #22ccff;
+            text-shadow: 0 0 18px #6A0DAD, 0 0 32px #220044;
+            z-index: 20;
+            animation: pop 1.1s;
+        }
+        @keyframes pop {
+            0% {transform: scale(0.5); opacity: 0;}
+            30% {transform: scale(1.2); opacity: 1;}
+            60% {transform: scale(0.85);}
+            90% {transform: scale(1);}
+            100% {opacity: 0;}
         }
     </style>
 </head>
 <body>
     <h1>Tetris pour les bg</h1>
     <div id="userBar"></div>
-    <audio id="bgMusic" src="./music.mp3" autoplay loop></audio>
-    <div id="pauseBar" onclick="togglePause()" style="cursor:pointer;">⏸ Pause</div>
+    <audio id="bgMusic" src="./music.mp3" loop preload="auto"></audio>
     <div>
         <span id="score">Score: 0</span> | 
         <span id="lines">Lignes: 0</span> | 
         <span id="level">Niveau: 1</span> | 
         <span id="timer">Temps: 0s</span>
     </div>
-    <button onclick="restartGame()">Redémarrer</button>
-    <div id="controls">
-        <button id="btnLeft">⬅️</button>
-        <button id="btnRight">➡️</button>
-        <button id="btnDown">⬇️</button>
-        <button id="btnRotate">🔄</button>
-        <button id="pauseBtn">⏸️</button>
+    <div class="game-buttons">
+        <button onclick="restartGame()">Redémarrer</button>
+        <button id="pauseBtn" onclick="togglePause()">Pause</button>
     </div>
+    <div id="gameOverMsg"></div>
     <canvas id="tetris" width="340" height="400"></canvas>
     <div id="leaderboard">
         <b>Leaderboard mondial</b>
@@ -139,14 +108,7 @@
             <tbody></tbody>
         </table>
     </div>
-    <div id="overlay"><span id="overlayText"></span></div>
-    <div id="gameOverModal">
-        <div class="modal-content">
-            <div style="font-size:2.2rem;margin-bottom:6px;">💀 Game Over ! 💀</div>
-            <div id="goScore"></div>
-            <button onclick="closeGameOver()">Rejouer</button>
-        </div>
-    </div>
+    <div id="levelAnim"></div>
     <script>
         // === CONFIG JSONBIN ===
         const API_KEY = "$2a$10$QaIl/jNblmE41X0hexsVMeqBDs68V0Hpu9nSNXw7BYEcYiVWEHd4K";
@@ -166,6 +128,7 @@
         }
         askUsername(true);
 
+        // === Leaderboard ===
         function renderLeaderboard() {
             leaderboard.sort((a, b) => b.score - a.score);
             let tbody = document.querySelector('#lbTable tbody');
@@ -211,23 +174,68 @@
         const context = canvas.getContext('2d');
         context.scale(20, 20);
 
-        const COLS = 17;
-        const ROWS = 20;
-
-        const arena = createMatrix(COLS, ROWS);
+        const arena = createMatrix(17, 20);
         const player = { pos: { x: 5, y: 0 }, matrix: null, score: 0, lines: 0, level: 1 };
         const scoreDisplay = document.getElementById('score');
         const linesDisplay = document.getElementById('lines');
         const levelDisplay = document.getElementById('level');
         const timerDisplay = document.getElementById('timer');
-        let paused = false;
-        let isGameOver = false;
-        let pauseStart = 0;
-        let pausedTime = 0;
+        const music = document.getElementById('bgMusic');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const gameOverMsg = document.getElementById('gameOverMsg');
+        const levelAnim = document.getElementById('levelAnim');
 
         let startTime = Date.now();
         let dropInterval = 600;
         let pieceBag = [];
+        let paused = false;
+        let isGameOver = false;
+        let prevLevel = 1;
+
+        // Empêcher scroll sur les touches jeu
+        window.addEventListener("keydown", function(e) {
+            if(['ArrowLeft','ArrowRight','ArrowDown',' '].includes(e.key)) {
+                e.preventDefault();
+            }
+        }, {passive: false});
+
+        // Music : play au 1er clic ou touche
+        function unlockMusic() {
+            if (music.paused) {
+                music.play().catch(() => {});
+            }
+            document.removeEventListener('click', unlockMusic);
+            document.removeEventListener('keydown', unlockMusic);
+        }
+        document.addEventListener('click', unlockMusic);
+        document.addEventListener('keydown', unlockMusic);
+
+        function togglePause() {
+            paused = !paused;
+            if (paused) {
+                pauseBtn.textContent = "Reprendre";
+            } else {
+                pauseBtn.textContent = "Pause";
+                requestAnimationFrame(update);
+            }
+        }
+
+        function showLevelAnim(lvl) {
+            levelAnim.textContent = `Niveau ${lvl}!`;
+            levelAnim.style.display = 'block';
+            setTimeout(() => { levelAnim.style.display = 'none'; }, 1100);
+        }
+
+        function showGameOver() {
+            isGameOver = true;
+            gameOverMsg.style.display = 'block';
+            gameOverMsg.textContent = "GAME OVER";
+        }
+
+        function hideGameOver() {
+            isGameOver = false;
+            gameOverMsg.style.display = 'none';
+        }
 
         function randomPieceType() {
             if (pieceBag.length === 0) {
@@ -248,24 +256,22 @@
             player.level = 1;
             dropInterval = 600;
             updateMusicSpeed();
+            hideGameOver();
             playerReset();
             updateScore();
-            paused = false;
-            isGameOver = false;
-            updatePauseBar();
-            document.getElementById('gameOverModal').style.display = "none";
             startTime = Date.now();
-            pausedTime = 0;
+            paused = false;
+            prevLevel = 1;
+            pauseBtn.textContent = "Pause";
+            requestAnimationFrame(update);
         }
 
         function updateMusicSpeed() {
-            const audio = document.getElementById('bgMusic');
-            audio.playbackRate = 1 + (player.level - 1) * 0.1;
+            music.playbackRate = 1 + (player.level - 1) * 0.1;
         }
 
         function updateTimer() {
-            let elapsed = Math.floor((Date.now() - startTime - pausedTime) / 1000);
-            if (elapsed < 0) elapsed = 0;
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
             timerDisplay.textContent = `Temps: ${elapsed}s`;
         }
         setInterval(updateTimer, 1000);
@@ -310,7 +316,7 @@
             for (let y = 0; y < m.length; ++y) {
                 for (let x = 0; x < m[y].length; ++x) {
                     if (m[y][x] !== 0) {
-                        if (o.x + x < 0 || o.x + x >= COLS || o.y + y >= ROWS) {
+                        if (o.x + x < 0 || o.x + x >= arena[0].length || o.y + y >= arena.length) {
                             return true;
                         }
                         if (arena[o.y + y] && arena[o.y + y][o.x + x] !== 0) {
@@ -337,19 +343,19 @@
                     player.level++;
                     dropInterval = Math.max(50, dropInterval - 50);
                     updateMusicSpeed();
-                    showLevelUp();
+                    showLevelAnim(player.level);
                 }
                 rowCount *= 2;
             }
         }
 
         function playerDrop() {
+            if (paused || isGameOver) return;
             player.pos.y++;
             if (collide(arena, player)) {
                 player.pos.y--;
                 merge(arena, player);
                 arenaSweep();
-                if (leaderboard.length === 0) fetchLeaderboard();
                 let prev = leaderboard.find(entry => entry.user === username);
                 if (!prev || player.score > prev.score) {
                     updateLeaderboard(player.score);
@@ -363,10 +369,10 @@
         function playerReset() {
             player.matrix = createPiece(randomPieceType());
             player.pos.y = 0;
-            player.pos.x = (COLS / 2 | 0) - (player.matrix[0].length / 2 | 0);
+            player.pos.x = (arena[0].length / 2 | 0) - (player.matrix[0].length / 2 | 0);
             if (collide(arena, player)) {
-                isGameOver = true;
                 showGameOver();
+                return;
             }
         }
 
@@ -378,4 +384,52 @@
 
         function rotate(matrix, dir = 1) {
             for (let y = 0; y < matrix.length; ++y)
-                for (let x = 0; x < y;
+                for (let x = 0; x < y; ++x)
+                    [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
+            dir > 0 ? matrix.forEach(row => row.reverse()) : matrix.reverse();
+        }
+
+        document.addEventListener('keydown', event => {
+            if (paused || isGameOver) return;
+            if (event.key === 'ArrowLeft') {
+                player.pos.x--;
+                if (collide(arena, player)) player.pos.x++;
+            } else if (event.key === 'ArrowRight') {
+                player.pos.x++;
+                if (collide(arena, player)) player.pos.x--;
+            } else if (event.key === 'ArrowDown') {
+                playerDrop();
+            } else if (event.key === ' ') {
+                rotate(player.matrix);
+                if (collide(arena, player)) {
+                    player.pos.x++;
+                    if (collide(arena, player)) player.pos.x -= 2;
+                    if (collide(arena, player)) rotate(player.matrix, -1);
+                }
+            }
+        });
+
+        let dropCounter = 0, lastTime = 0;
+        function update(time = 0) {
+            if (paused || isGameOver) return;
+            const deltaTime = time - lastTime;
+            lastTime = time;
+            dropCounter += deltaTime;
+            if (dropCounter > dropInterval) playerDrop();
+
+            context.fillStyle = '#111122';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+
+            drawMatrix(arena, { x: 0, y: 0 });
+            drawMatrix(player.matrix, player.pos);
+
+            requestAnimationFrame(update);
+        }
+
+        fetchLeaderboard();
+        playerReset();
+        updateScore();
+        update();
+    </script>
+</body>
+</html>
