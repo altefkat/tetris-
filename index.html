@@ -395,14 +395,15 @@ function drawMatrix(matrix, offset) {
             context.fillStyle = color;
             context.fillRect(x + offset.x, y + offset.y, 1, 1);
             context.restore();
-            // 3. Enfin le contour blanc doux
+           // 3. Contour subtil et moins prononcé
             context.save();
-            context.globalAlpha = 1.0;
+            context.globalAlpha = 0.33;
             context.shadowBlur = 0;
-            context.strokeStyle = "#eaefff";
-            context.lineWidth = 0.09;
+            context.strokeStyle = "rgba(180,210,255,1)"; // blanc bleuté très doux
+            context.lineWidth = 0.04; // plus fin
             context.strokeRect(x + offset.x, y + offset.y, 1, 1);
             context.restore();
+
         }
     }));
 }
