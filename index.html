@@ -190,6 +190,13 @@
     }
 }
 
+    window.addEventListener('DOMContentLoaded', () => {
+    // Volume musique (par défaut ou un peu moins fort)
+    document.getElementById('bgMusic').volume = 0.6;
+    // Volume effets à fond
+    document.getElementById('soundDrop').volume = 1;
+    document.getElementById('soundClear').volume = 1;
+});
     
     // 1. MUSIQUE AUTOPLAY/AUTO-UNLOCK
 window.addEventListener('load', () => {
