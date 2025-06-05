@@ -770,69 +770,91 @@ player.score += gain;
     setupTouchControls();
     update();
 
-    // ======================
-// === TOUCH/SWIPE CONTROL (SMARTPHONE)
+   // ======================
+// === TOUCH/SWIPE CONTROL (SMARTPHONE) ULTRA FLUIDE
 // ======================
 function isTouchDevice() {
     return ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 }
 
 if (isTouchDevice()) {
-    // Désactive les boutons tactiles si présents
     document.getElementById('controls').style.display = "none";
-
-    let touchStartX = null, touchStartY = null, moved = false;
-    let touchStartTime = null;
-    let swipeHandled = false;
     let canvas = document.getElementById('tetris');
 
-    // Pour éviter rotation et déplacement simultané
-    const minSwipeDist = 30; // px
+    let touchStartX = null, touchStartY = null;
+    let lastMoveX = null, lastMoveY = null;
+    let moved = false, swipeHandled = false;
+    let touchStartTime = null;
+    let lastDir = null;
+    const minSwipeDist = 18; // px, + petit = + réactif
+    const moveRepeatDelay = 80; // ms entre deux moves continus
+
+    let lastMoveTime = 0;
 
     canvas.addEventListener('touchstart', function(e) {
         if (isGameOver || paused) return;
         if (e.touches.length !== 1) return;
         const t = e.touches[0];
-        touchStartX = t.clientX;
-        touchStartY = t.clientY;
+        touchStartX = lastMoveX = t.clientX;
+        touchStartY = lastMoveY = t.clientY;
         touchStartTime = Date.now();
+        lastMoveTime = Date.now();
         moved = false;
         swipeHandled = false;
+        lastDir = null;
     });
 
     canvas.addEventListener('touchmove', function(e) {
         if (isGameOver || paused) return;
         if (e.touches.length !== 1) return;
         const t = e.touches[0];
-        const dx = t.clientX - touchStartX;
-        const dy = t.clientY - touchStartY;
+        const dx = t.clientX - lastMoveX;
+        const dy = t.clientY - lastMoveY;
 
-        // Swipe gauche/droite
-        if (!swipeHandled && Math.abs(dx) > minSwipeDist && Math.abs(dx) > Math.abs(dy)) {
-            if (dx > 0) {
-                player.pos.x++;
-                if (collide(arena, player)) player.pos.x--;
-            } else {
-                player.pos.x--;
-                if (collide(arena, player)) player.pos.x++;
+        const dxTot = t.clientX - touchStartX;
+        const dyTot = t.clientY - touchStartY;
+
+        // Déplacement horizontal continu
+        if (Math.abs(dxTot) > Math.abs(dyTot) && Math.abs(dxTot) > minSwipeDist) {
+            if (Date.now() - lastMoveTime > moveRepeatDelay) {
+                if (dxTot > 0) {
+                    player.pos.x++;
+                    if (collide(arena, player)) player.pos.x--;
+                    lastDir = 'right';
+                } else {
+                    player.pos.x--;
+                    if (collide(arena, player)) player.pos.x++;
+                    lastDir = 'left';
+                }
+                lastMoveTime = Date.now();
+                moved = true;
             }
-            swipeHandled = true;
-            moved = true;
         }
-        // Swipe bas
-        if (!swipeHandled && Math.abs(dy) > minSwipeDist && Math.abs(dy) > Math.abs(dx)) {
-            if (dy > 0) {
-                playerDrop();
+        // Déplacement vertical
+        else if (Math.abs(dyTot) > minSwipeDist && Math.abs(dyTot) > Math.abs(dxTot)) {
+            // Drop rapide si swipe rapide (vitesse > 1px/ms)
+            const swipeSpeed = Math.abs(dyTot) / (Date.now() - touchStartTime + 1);
+            if (!swipeHandled && dyTot > 0 && swipeSpeed > 0.8) {
+                playerDrop(); // hard drop
+                swipeHandled = true;
             }
-            swipeHandled = true;
-            moved = true;
+            // Sinon descente continue
+            else if (dyTot > 0 && Date.now() - lastMoveTime > moveRepeatDelay) {
+                player.pos.y++;
+                if (collide(arena, player)) player.pos.y--;
+                lastMoveTime = Date.now();
+                moved = true;
+            }
         }
-    });
+
+        lastMoveX = t.clientX;
+        lastMoveY = t.clientY;
+    }, {passive: false});
 
     canvas.addEventListener('touchend', function(e) {
         if (isGameOver || paused) return;
-        // Si pas de swipe détecté et court tap = rotation
-        if (!moved && Date.now() - touchStartTime < 300) {
+        // Si pas de swipe et tap court = rotation
+        if (!moved && Date.now() - touchStartTime < 250) {
             rotate(player.matrix);
             if (collide(arena, player)) {
                 player.pos.x++;
@@ -843,9 +865,10 @@ if (isTouchDevice()) {
         touchStartX = touchStartY = null;
         moved = false;
         swipeHandled = false;
+        lastDir = null;
     });
 
-    // Pour empêcher le scroll pendant le jeu
+    // Bloque scroll pendant le jeu
     canvas.addEventListener('touchmove', function(e) {
         e.preventDefault();
     }, { passive: false });
