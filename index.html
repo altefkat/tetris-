@@ -168,6 +168,10 @@
     <button id="muteSfxBtn" style="font-size: 1.2rem; border-radius:8px;">🔔 Effets</button>
 </div>
 
+    <div style="margin:10px 0;">
+    <button id="fullscreenBtn" style="font-size: 1.2rem; border-radius:8px;">⛶ Plein écran</button>
+</div>
+
     <canvas id="tetris"></canvas>
     <div id="leaderboard">
         <b>Leaderboard mondial</b>
@@ -260,6 +264,51 @@ document.getElementById('muteSfxBtn').onclick = function() {
 
 // Applique l’état au démarrage
 setMuteState();
+
+    // === GESTION PLEIN ÉCRAN ===
+const fullscreenBtn = document.getElementById('fullscreenBtn');
+const container = document.getElementById('container');
+
+function isFullscreen() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+}
+
+function enterFullscreen(elem) {
+    if (elem.requestFullscreen) elem.requestFullscreen();
+    else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+    else if (elem.mozRequestFullScreen) elem.mozRequestFullScreen();
+    else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
+}
+
+function exitFullscreen() {
+    if (document.exitFullscreen) document.exitFullscreen();
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+    else if (document.msExitFullscreen) document.msExitFullscreen();
+}
+
+// Toggle plein écran sur le bouton
+fullscreenBtn.onclick = function() {
+    if (!isFullscreen()) {
+        enterFullscreen(container);
+    } else {
+        exitFullscreen();
+    }
+};
+
+// Changement d’icône/titre selon l’état
+function updateFullscreenBtn() {
+    fullscreenBtn.textContent = isFullscreen() ? "❎ Quitter plein écran" : "⛶ Plein écran";
+}
+
+// Mets à jour à chaque changement d’état
+document.addEventListener('fullscreenchange', updateFullscreenBtn);
+document.addEventListener('webkitfullscreenchange', updateFullscreenBtn);
+document.addEventListener('mozfullscreenchange', updateFullscreenBtn);
+document.addEventListener('MSFullscreenChange', updateFullscreenBtn);
+
+// Au cas où, mets à jour à l’init
+updateFullscreenBtn();
 
 
     
