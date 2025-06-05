@@ -562,23 +562,24 @@ player.score += gain;
 }
 
 
-  function playerReset() {
+ function playerReset() {
     player.matrix = createPiece(randomPieceType());
     player.pos.y = 0;
     player.pos.x = (arena[0].length / 2 | 0) - (player.matrix[0].length / 2 | 0);
 
-    // Vérifie s’il reste du speedup en cours
-    if (player.speedupCount !== undefined && player.speedupCount > 0) {
-        player.effect = "speedup"; // Force l’effet speedup sur toutes les pièces suivantes
+    // 1. Si speedup en cours, on garde l'effet sur toutes les pièces
+    if (player.speedupCount && player.speedupCount > 0) {
+        player.effect = "speedup";
         player.speedupCount--;
         if (player.speedupCount <= 0) {
             player.speedupCount = undefined;
             dropInterval = Math.max(30, Math.floor(600 * Math.pow(0.75, player.level - 1)));
             showBonusMsg('Fin accélération', '#0099ff');
         }
-    } else {
-        player.effect = randomEffect(); // Pièce normale ou nouveau bonus/malus
-        // Si nouveau speedup, on démarre le compteur :
+    }
+    // 2. Sinon, on tire un nouvel effet
+    else {
+        player.effect = randomEffect();
         if (player.effect === "speedup") {
             player.speedupCount = 10;
             dropInterval = Math.max(40, dropInterval * 0.6);
@@ -591,6 +592,7 @@ player.score += gain;
         showGameOver();
     }
 }
+
 
 
 
