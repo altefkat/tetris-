@@ -183,11 +183,6 @@
 </div>
 <script>
 
-    let keyInterval = null;
-    let keyDownActive = null;
-    let keyRepeatDelay = 60;  // ms avant répétition (plus petit = plus rapide)
-    let keyRepeatSpeed = 30;  // ms entre chaque déplacement répété
-    
     let piecesPlayedThisLevel = 0;
     let bonusUsedThisLevel = 0;
     let bonusGuaranteed = false;
@@ -633,35 +628,6 @@ player.score += gain;
         dir > 0 ? matrix.forEach(row => row.reverse()) : matrix.reverse();
     }
 
-    function handleKeyDown(event) {
-    if (isGameOver || paused) return;
-    let moveFunc;
-    if (event.key === "ArrowLeft") moveFunc = () => { player.pos.x--; if (collide(arena, player)) player.pos.x++; };
-    if (event.key === "ArrowRight") moveFunc = () => { player.pos.x++; if (collide(arena, player)) player.pos.x--; };
-    if (event.key === "ArrowDown") moveFunc = () => { playerDrop(); };
-    if (!moveFunc) return;
-
-    // Évite de lancer plusieurs intervalles si déjà actif
-    if (keyDownActive === event.key) return;
-    keyDownActive = event.key;
-    moveFunc(); // Premier déplacement immédiat
-
-    // Répétition
-    keyInterval = setTimeout(function repeat() {
-        moveFunc();
-        keyInterval = setTimeout(repeat, keyRepeatSpeed);
-    }, keyRepeatDelay);
-}
-
-function handleKeyUp(event) {
-    if (event.key === keyDownActive) {
-        clearTimeout(keyInterval);
-        keyDownActive = null;
-        keyInterval = null;
-    }
-}
-
-
     function showLevelUp(level) {
         let overlay = document.getElementById("levelUpOverlay");
         let text = document.getElementById("levelUpText");
@@ -704,21 +670,25 @@ function handleKeyUp(event) {
     // ======================
     // === CONTROLES CLAVIER / MOBILE
     // ======================
-    // Pour les flèches directionnelles fluides
-document.addEventListener('keydown', handleKeyDown);
-document.addEventListener('keyup', handleKeyUp);
-
-// Pour la rotation (Espace) et la pause (P) — non répétées
-document.addEventListener('keydown', event => {
-    if (isGameOver || paused) return;
-    if (event.key === ' ') {
+   document.addEventListener('keydown', event => {
+    if (isGameOver) return;
+    if (event.key === 'ArrowLeft') {
+        player.pos.x--;
+        if (collide(arena, player)) player.pos.x++;
+    } else if (event.key === 'ArrowRight') {
+        player.pos.x++;
+        if (collide(arena, player)) player.pos.x--;
+    } else if (event.key === 'ArrowDown') {
+        playerDrop();
+        event.preventDefault(); // Empêche le scroll de la page !
+    } else if (event.key === ' ') {
         rotate(player.matrix);
         if (collide(arena, player)) {
             player.pos.x++;
             if (collide(arena, player)) player.pos.x -= 2;
             if (collide(arena, player)) rotate(player.matrix, -1);
         }
-        event.preventDefault(); // Empêche le scroll de la page.
+        event.preventDefault(); // Empêche le scroll, si besoin.
     } else if (event.key.toLowerCase() === 'p') {
         togglePause();
     }
