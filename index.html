@@ -770,6 +770,88 @@ player.score += gain;
     setupTouchControls();
     update();
 
+    // ======================
+// === TOUCH/SWIPE CONTROL (SMARTPHONE)
+// ======================
+function isTouchDevice() {
+    return ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+}
+
+if (isTouchDevice()) {
+    // Désactive les boutons tactiles si présents
+    document.getElementById('controls').style.display = "none";
+
+    let touchStartX = null, touchStartY = null, moved = false;
+    let touchStartTime = null;
+    let swipeHandled = false;
+    let canvas = document.getElementById('tetris');
+
+    // Pour éviter rotation et déplacement simultané
+    const minSwipeDist = 30; // px
+
+    canvas.addEventListener('touchstart', function(e) {
+        if (isGameOver || paused) return;
+        if (e.touches.length !== 1) return;
+        const t = e.touches[0];
+        touchStartX = t.clientX;
+        touchStartY = t.clientY;
+        touchStartTime = Date.now();
+        moved = false;
+        swipeHandled = false;
+    });
+
+    canvas.addEventListener('touchmove', function(e) {
+        if (isGameOver || paused) return;
+        if (e.touches.length !== 1) return;
+        const t = e.touches[0];
+        const dx = t.clientX - touchStartX;
+        const dy = t.clientY - touchStartY;
+
+        // Swipe gauche/droite
+        if (!swipeHandled && Math.abs(dx) > minSwipeDist && Math.abs(dx) > Math.abs(dy)) {
+            if (dx > 0) {
+                player.pos.x++;
+                if (collide(arena, player)) player.pos.x--;
+            } else {
+                player.pos.x--;
+                if (collide(arena, player)) player.pos.x++;
+            }
+            swipeHandled = true;
+            moved = true;
+        }
+        // Swipe bas
+        if (!swipeHandled && Math.abs(dy) > minSwipeDist && Math.abs(dy) > Math.abs(dx)) {
+            if (dy > 0) {
+                playerDrop();
+            }
+            swipeHandled = true;
+            moved = true;
+        }
+    });
+
+    canvas.addEventListener('touchend', function(e) {
+        if (isGameOver || paused) return;
+        // Si pas de swipe détecté et court tap = rotation
+        if (!moved && Date.now() - touchStartTime < 300) {
+            rotate(player.matrix);
+            if (collide(arena, player)) {
+                player.pos.x++;
+                if (collide(arena, player)) player.pos.x -= 2;
+                if (collide(arena, player)) rotate(player.matrix, -1);
+            }
+        }
+        touchStartX = touchStartY = null;
+        moved = false;
+        swipeHandled = false;
+    });
+
+    // Pour empêcher le scroll pendant le jeu
+    canvas.addEventListener('touchmove', function(e) {
+        e.preventDefault();
+    }, { passive: false });
+}
+
+
 </script>
 </body>
 </html>
