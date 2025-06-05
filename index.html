@@ -391,6 +391,7 @@ let nextPieceType = null;
 // Nouvelle fonction pour dessiner la prochaine pièce
 function drawNextPiece() {
     nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+    if (player.hiddenCount && player.hiddenCount > 0) return;
     if (!nextPieceType) return;
     let matrix = createPiece(nextPieceType);
     // Centrage auto
@@ -520,21 +521,28 @@ function drawNextPiece() {
         bonusUsedThisLevel++;
         // Choix entre bonus/malus/speedup garanti
         let r = Math.random();
-        if (r < 0.4) return "bonus";
-        if (r < 0.6) return "malus";
-        return "speedup";
+    if (r < 0.06) return "bonus";
+    if (r < 0.08) return "explosion";
+    if (r < 0.11) return "slow";
+    if (r < 0.115) return "malus";
+    if (r < 0.14) return "inverted";
+    if (r < 0.145) return "hidden";
+    return "speedup";
     }
 
     // Sinon, on fait un tirage normal mais plus généreux (ex : 10% par pièce)
-    let r = Math.random();
-    if (r < 0.11) {
-        bonusUsedThisLevel++;
-        if (r < 0.04) return "bonus";
-        if (r < 0.06) return "malus";
-        return "speedup";
-    }
-    return null;
+  let r = Math.random();
+if (r < 0.15) { // 16% d'effet
+    bonusUsedThisLevel++;
+    if (r < 0.06) return "bonus";         // double score
+    if (r < 0.08) return "explosion";     // explosion
+    if (r < 0.11) return "slow";          // ralenti
+    if (r < 0.115) return "malus";         // demi-score
+    if (r < 0.14) return "inverted";     // inversion contrôles
+    if (r < 0.145) return "hidden";        // pièce cachée
+    return "speedup";                     // vitesse (rare)
 }
+
 
 
 
@@ -645,6 +653,13 @@ function drawMatrix(matrix, offset) {
     if (collide(arena, player)) {
         player.pos.y--;
         merge(arena, player);
+        if (player.explodeNext) {
+    arena.pop(); // retire la dernière ligne
+    arena.unshift(new Array(COLS).fill(0)); // ajoute une ligne vide en haut
+    playSound('soundLevelUp'); // ou autre bruit d’explosion à custom
+    player.explodeNext = false;
+    showBonusMsg('💥 Ligne détruite !', '#ffbb00');
+}
         playSound('soundDrop'); // <-- On joue le son drop ici !
         arenaSweep();           // <-- On appelle la fonction qui gère les clears (en dehors)
         let prev = leaderboard.find(entry => entry.user === username);
@@ -704,23 +719,62 @@ function playerReset() {
     drawNextPiece();                            // on affiche dans le mini-canvas
     player.pos.y = 0;
     player.pos.x = (arena[0].length / 2 | 0) - (player.matrix[0].length / 2 | 0);
-    // ... reste du code inchangé ...
+
+    // --- 1. Décrémentation et FIN des effets (F) ---
+    if (player.slowCount && player.slowCount > 0) {
+        player.slowCount--;
+        if (player.slowCount === 0) {
+            dropInterval = Math.max(30, Math.floor(600 * Math.pow(0.75, player.level - 1)));
+            showBonusMsg('Fin ralenti', '#8ecfff');
+        }
+    }
     if (player.speedupCount && player.speedupCount > 0) {
-        player.effect = "speedup";
         player.speedupCount--;
-        if (player.speedupCount <= 0) {
-            player.speedupCount = undefined;
+        if (player.speedupCount === 0) {
             dropInterval = Math.max(30, Math.floor(600 * Math.pow(0.75, player.level - 1)));
             showBonusMsg('Fin accélération', '#0099ff');
         }
-    } else {
-        player.effect = randomEffect();
-        if (player.effect === "speedup") {
-            player.speedupCount = 3;
-            dropInterval = Math.max(40, dropInterval * 0.6);
-            showBonusMsg('⚡ Accélération !', '#ff3366');
+    }
+    if (player.invertedCount && player.invertedCount > 0) {
+        player.invertedCount--;
+        if (player.invertedCount === 0) {
+            showBonusMsg('Contrôles normaux', '#8ecfff');
         }
     }
+    if (player.hiddenCount && player.hiddenCount > 0) {
+        player.hiddenCount--;
+        if (player.hiddenCount === 0) {
+            showBonusMsg('Prochaine pièce visible', '#fff');
+        }
+    }
+
+    // --- 2. Activation d'un NOUVEL effet (B) ---
+    player.effect = randomEffect();
+
+    if (player.effect === "explosion") {
+        player.explodeNext = true;
+        showBonusMsg('💥 Explosion !', '#ffbb00');
+    }
+    if (player.effect === "slow") {
+        player.slowCount = 5;
+        dropInterval = Math.max(300, dropInterval * 2);
+        showBonusMsg('🐢 Ralenti !', '#8ecfff');
+    }
+    if (player.effect === "speedup") {
+        player.speedupCount = 3;
+        dropInterval = Math.max(40, dropInterval * 0.6);
+        showBonusMsg('⚡ Accélération !', '#ff3366');
+    }
+    if (player.effect === "inverted") {
+        player.invertedCount = 5;
+        showBonusMsg('↔️ Contrôles inversés !', '#ff6666');
+    }
+    if (player.effect === "hidden") {
+        player.hiddenCount = 5;
+        showBonusMsg('❓ Pièce cachée !', '#ffffff');
+    }
+
+    // --- 3. Game over si collision ---
     if (collide(arena, player)) {
         isGameOver = true;
         showGameOver();
@@ -788,11 +842,27 @@ function playerReset() {
    document.addEventListener('keydown', event => {
     if (isGameOver) return;
     if (event.key === 'ArrowLeft') {
-        player.pos.x--;
-        if (collide(arena, player)) player.pos.x++;
+        if (player.invertedCount && player.invertedCount > 0) {
+            // Inversé = droite !
+            player.pos.x++;
+            if (collide(arena, player)) player.pos.x--;
+        } else {
+            player.pos.x--;
+            if (collide(arena, player)) player.pos.x++;
+        }
     } else if (event.key === 'ArrowRight') {
-        player.pos.x++;
-        if (collide(arena, player)) player.pos.x--;
+        if (player.invertedCount && player.invertedCount > 0) {
+            // Inversé = gauche !
+            player.pos.x--;
+            if (collide(arena, player)) player.pos.x++;
+        } else {
+            player.pos.x++;
+            if (collide(arena, player)) player.pos.x--;
+        }
+    }
+    
+});
+
     } else if (event.key === 'ArrowDown') {
         playerDrop();
         event.preventDefault(); // Empêche le scroll de la page !
@@ -933,13 +1003,24 @@ if (isTouchDevice()) {
         // Déplacement horizontal continu
         if (Math.abs(dxTot) > Math.abs(dyTot) && Math.abs(dxTot) > minSwipeDist) {
             if (Date.now() - lastMoveTime > moveRepeatDelay) {
-                if (dxTot > 0) {
-                    player.pos.x++;
-                    if (collide(arena, player)) player.pos.x--;
-                    lastDir = 'right';
-                } else {
-                    player.pos.x--;
-                    if (collide(arena, player)) player.pos.x++;
+                if (player.invertedCount && player.invertedCount > 0) {
+    // Inversé : swipe droite = gauche et inversement
+    if (dxTot > 0) {
+        player.pos.x--;
+        if (collide(arena, player)) player.pos.x++;
+    } else {
+        player.pos.x++;
+        if (collide(arena, player)) player.pos.x--;
+    }
+} else {
+    if (dxTot > 0) {
+        player.pos.x++;
+        if (collide(arena, player)) player.pos.x--;
+    } else {
+        player.pos.x--;
+        if (collide(arena, player)) player.pos.x++;
+    }
+}
                     lastDir = 'left';
                 }
                 lastMoveTime = Date.now();
