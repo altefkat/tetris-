@@ -172,6 +172,11 @@
     <button id="fullscreenBtn" style="font-size: 1.2rem; border-radius:8px;">⛶ Plein écran</button>
 </div>
 
+    <div id="nextContainer" style="margin: 8px auto 0 auto; width: 90px;">
+    <span style="font-size:0.95rem;color:#fff;">Prochaine pièce</span>
+    <canvas id="next" width="80" height="80" style="display:block;margin:auto;background:rgba(20,10,40,0.7);border-radius:8px;box-shadow:0 0 6px #6A0DAD;"></canvas>
+</div>
+
     <canvas id="tetris"></canvas>
     <div id="leaderboard">
         <b>Leaderboard mondial</b>
@@ -378,6 +383,44 @@ updateFullscreenBtn();
     const canvas = document.getElementById('tetris');
     const context = canvas.getContext('2d');
 
+    // === NEXT PIECE ===
+const nextCanvas = document.getElementById('next');
+const nextCtx = nextCanvas.getContext('2d');
+let nextPieceType = null;
+
+// Nouvelle fonction pour dessiner la prochaine pièce
+function drawNextPiece() {
+    nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+    if (!nextPieceType) return;
+    let matrix = createPiece(nextPieceType);
+    // Centrage auto
+    let offsetX = Math.floor((4 - matrix[0].length) / 2);
+    let offsetY = Math.floor((4 - matrix.length) / 2);
+
+    // Même effet néon que le jeu principal
+    matrix.forEach((row, y) => row.forEach((value, x) => {
+        if (value !== 0) {
+            let {color, glow} = randomNeonColor(value + Math.floor(Math.random() * 3));
+            nextCtx.save();
+            nextCtx.globalAlpha = 0.92;
+            nextCtx.shadowColor = glow;
+            nextCtx.shadowBlur = 16;
+            nextCtx.fillStyle = color;
+            nextCtx.fillRect((x + offsetX) * 18, (y + offsetY) * 18, 18, 18);
+            nextCtx.restore();
+            // Contour
+            nextCtx.save();
+            nextCtx.globalAlpha = 0.33;
+            nextCtx.shadowBlur = 0;
+            nextCtx.strokeStyle = "rgba(180,210,255,0.33)";
+            nextCtx.lineWidth = 1.2;
+            nextCtx.strokeRect((x + offsetX) * 18, (y + offsetY) * 18, 18, 18);
+            nextCtx.restore();
+        }
+    }));
+}
+
+    
     const COLS = 17, ROWS = 20;
     let cellSize = 20;
     function fitCanvas() {
@@ -401,6 +444,8 @@ updateFullscreenBtn();
     let startTime = Date.now();
     let dropInterval = 600;
     let pieceBag = [];
+
+    nextPieceType = randomPieceType(); // initialisation de la prochaine pièce
 
     let paused = false, isGameOver = false, pauseStart = 0, pausedTime = 0;
 
@@ -652,13 +697,14 @@ function drawMatrix(matrix, offset) {
 }
 
 
- function playerReset() {
-    piecesPlayedThisLevel++; 
-    player.matrix = createPiece(randomPieceType());
+function playerReset() {
+    piecesPlayedThisLevel++;
+    player.matrix = createPiece(nextPieceType); // la pièce suivante devient active
+    nextPieceType = randomPieceType();          // on prépare la future
+    drawNextPiece();                            // on affiche dans le mini-canvas
     player.pos.y = 0;
     player.pos.x = (arena[0].length / 2 | 0) - (player.matrix[0].length / 2 | 0);
-
-    // 1. Si speedup en cours, on garde l'effet sur toutes les pièces
+    // ... reste du code inchangé ...
     if (player.speedupCount && player.speedupCount > 0) {
         player.effect = "speedup";
         player.speedupCount--;
@@ -667,17 +713,14 @@ function drawMatrix(matrix, offset) {
             dropInterval = Math.max(30, Math.floor(600 * Math.pow(0.75, player.level - 1)));
             showBonusMsg('Fin accélération', '#0099ff');
         }
-    }
-    // 2. Sinon, on tire un nouvel effet
-    else {
+    } else {
         player.effect = randomEffect();
         if (player.effect === "speedup") {
-            player.speedupCount = 4;
+            player.speedupCount = 3;
             dropInterval = Math.max(40, dropInterval * 0.6);
             showBonusMsg('⚡ Accélération !', '#ff3366');
         }
     }
-
     if (collide(arena, player)) {
         isGameOver = true;
         showGameOver();
@@ -837,6 +880,7 @@ function drawMatrix(matrix, offset) {
 
     fetchLeaderboard();
     playerReset();
+    drawNextPiece();
     updateScore();
     updatePauseBar();
     setupTouchControls();
