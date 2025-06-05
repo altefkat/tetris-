@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tetris Leaderboard BG</title>
     <style>
+        /* ... (tes styles sont nickels, je ne les touche pas) ... */
+        /* Copie les styles ici ou garde-les inchangés, c'est ok ! */
         html, body {
             margin: 0; padding: 0;
             background: url('./background.png') center center / cover no-repeat;
@@ -197,12 +199,12 @@
     <div id="levelUpText"></div>
 </div>
 <script>
+/* --------------- CORRECTION ZONE --------------- */
+let piecesPlayedThisLevel = 0;
+let bonusUsedThisLevel = 0;
+let bonusGuaranteed = false;
 
-    let piecesPlayedThisLevel = 0;
-    let bonusUsedThisLevel = 0;
-    let bonusGuaranteed = false;
-        
-    function playSound(id) {
+function playSound(id) {
     const audio = document.getElementById(id);
     if (audio) {
         audio.currentTime = 0;
@@ -210,17 +212,14 @@
     }
 }
 
-    window.addEventListener('DOMContentLoaded', () => {
-    // Volume musique (par défaut ou un peu moins fort)
+window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('bgMusic').volume = 0.5;
-    // Volume effets à fond
     document.getElementById('soundDrop').volume = 1;
     document.getElementById('soundClear').volume = 1;
     document.getElementById('soundLevelUp').volume = 1;
-
 });
-    
-    // 1. MUSIQUE AUTOPLAY/AUTO-UNLOCK
+
+// MUSIQUE AUTOPLAY/AUTO-UNLOCK
 window.addEventListener('load', () => {
     const audio = document.getElementById('bgMusic');
     if (audio.paused) audio.play().catch(()=>{});
@@ -234,8 +233,7 @@ function unlockAudio() {
 document.addEventListener('keydown', unlockAudio, {once: true});
 document.addEventListener('touchstart', unlockAudio, {once: true});
 
-
-    // === GESTION MUTE MUSIQUE & SONS ===
+// GESTION MUTE MUSIQUE & SONS
 const bgMusic = document.getElementById('bgMusic');
 const soundDrop = document.getElementById('soundDrop');
 const soundClear = document.getElementById('soundClear');
@@ -248,157 +246,124 @@ function setMuteState() {
     soundDrop.muted = sfxMuted;
     soundClear.muted = sfxMuted;
     soundLevelUp.muted = sfxMuted;
-    // Affichage boutons
     document.getElementById('muteMusicBtn').textContent = musicMuted ? "🔇 Musique" : "🔊 Musique";
     document.getElementById('muteSfxBtn').textContent = sfxMuted ? "🔕 Effets" : "🔔 Effets";
 }
-
-// Bouton musique
 document.getElementById('muteMusicBtn').onclick = function() {
     const musicMuted = bgMusic.muted = !bgMusic.muted;
     localStorage.setItem('musicMuted', musicMuted ? "1" : "0");
     setMuteState();
 };
-// Bouton effets
 document.getElementById('muteSfxBtn').onclick = function() {
     const sfxMuted = !soundDrop.muted;
     soundDrop.muted = soundClear.muted = soundLevelUp.muted = sfxMuted;
     localStorage.setItem('sfxMuted', sfxMuted ? "1" : "0");
     setMuteState();
 };
-
-// Applique l’état au démarrage
 setMuteState();
 
-    // === GESTION PLEIN ÉCRAN ===
+// FULLSCREEN
 const fullscreenBtn = document.getElementById('fullscreenBtn');
 const container = document.getElementById('container');
-
 function isFullscreen() {
     return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
 }
-
 function enterFullscreen(elem) {
     if (elem.requestFullscreen) elem.requestFullscreen();
     else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
     else if (elem.mozRequestFullScreen) elem.mozRequestFullScreen();
     else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
 }
-
 function exitFullscreen() {
     if (document.exitFullscreen) document.exitFullscreen();
     else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
     else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
     else if (document.msExitFullscreen) document.msExitFullscreen();
 }
-
-// Toggle plein écran sur le bouton
 fullscreenBtn.onclick = function() {
-    if (!isFullscreen()) {
-        enterFullscreen(container);
-    } else {
-        exitFullscreen();
-    }
+    if (!isFullscreen()) enterFullscreen(container);
+    else exitFullscreen();
 };
-
-// Changement d’icône/titre selon l’état
 function updateFullscreenBtn() {
     fullscreenBtn.textContent = isFullscreen() ? "❎ Quitter plein écran" : "⛶ Plein écran";
 }
-
-// Mets à jour à chaque changement d’état
 document.addEventListener('fullscreenchange', updateFullscreenBtn);
 document.addEventListener('webkitfullscreenchange', updateFullscreenBtn);
 document.addEventListener('mozfullscreenchange', updateFullscreenBtn);
 document.addEventListener('MSFullscreenChange', updateFullscreenBtn);
-
-// Au cas où, mets à jour à l’init
 updateFullscreenBtn();
 
+/* --- LEADERBOARD --- */
+const API_KEY = "$2a$10$QaIl/jNblmE41X0hexsVMeqBDs68V0Hpu9nSNXw7BYEcYiVWEHd4K";
+const BIN_ID = "6825bd578561e97a5014584f";
+const BIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+let leaderboard = [];
+let username = null;
 
-    
-    // ======================
-    // === LEADERBOARD & USERNAME
-    // ======================
-    const API_KEY = "$2a$10$QaIl/jNblmE41X0hexsVMeqBDs68V0Hpu9nSNXw7BYEcYiVWEHd4K";
-    const BIN_ID = "6825bd578561e97a5014584f";
-    const BIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
-    let leaderboard = [];
-    let username = null;
+function askUsername(force) {
+    username = localStorage.getItem('tetrisUser');
+    if (!username || force) {
+        username = prompt("Entrez votre pseudo pour le classement :", username || "");
+        if (!username) username = "Anonyme";
+        localStorage.setItem('tetrisUser', username);
+    }
+    document.getElementById('userBar').textContent = `Tu joues en tant que : ${username}`;
+}
+askUsername(true);
 
-    function askUsername(force) {
-        username = localStorage.getItem('tetrisUser');
-        if (!username || force) {
-            username = prompt("Entrez votre pseudo pour le classement :", username || "");
-            if (!username) username = "Anonyme";
-            localStorage.setItem('tetrisUser', username);
+function renderLeaderboard() {
+    leaderboard.sort((a, b) => b.score - a.score);
+    let tbody = document.querySelector('#lbTable tbody');
+    tbody.innerHTML = "";
+    leaderboard.slice(0, 10).forEach((entry, idx) => {
+        let row = document.createElement('tr');
+        row.innerHTML = `<td>${idx + 1}</td><td>${entry.user}</td><td>${entry.score}</td>`;
+        tbody.appendChild(row);
+    });
+}
+function fetchLeaderboard() {
+    fetch(BIN_URL, { headers: { "X-Master-Key": API_KEY } })
+    .then(res => res.json())
+    .then(data => {
+        leaderboard = data.record.scores || [];
+        renderLeaderboard();
+    });
+}
+function updateLeaderboard(newScore) {
+    let found = false;
+    leaderboard = leaderboard.map(entry => {
+        if (entry.user === username) {
+            found = true;
+            return { user: username, score: Math.max(newScore, entry.score) };
         }
-        document.getElementById('userBar').textContent = `Tu joues en tant que : ${username}`;
-    }
-    askUsername(true);
+        return entry;
+    });
+    if (!found) leaderboard.push({ user: username, score: newScore });
+    fetch(BIN_URL, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+            "X-Master-Key": API_KEY
+        },
+        body: JSON.stringify({ scores: leaderboard })
+    }).then(() => renderLeaderboard());
+}
 
-    function renderLeaderboard() {
-        leaderboard.sort((a, b) => b.score - a.score);
-        let tbody = document.querySelector('#lbTable tbody');
-        tbody.innerHTML = "";
-        leaderboard.slice(0, 10).forEach((entry, idx) => {
-            let row = document.createElement('tr');
-            row.innerHTML = `<td>${idx + 1}</td><td>${entry.user}</td><td>${entry.score}</td>`;
-            tbody.appendChild(row);
-        });
-    }
+/* --- TETRIS SETUP --- */
+const canvas = document.getElementById('tetris');
+const context = canvas.getContext('2d');
 
-    function fetchLeaderboard() {
-        fetch(BIN_URL, { headers: { "X-Master-Key": API_KEY } })
-        .then(res => res.json())
-        .then(data => {
-            leaderboard = data.record.scores || [];
-            renderLeaderboard();
-        });
-    }
-
-    function updateLeaderboard(newScore) {
-        let found = false;
-        leaderboard = leaderboard.map(entry => {
-            if (entry.user === username) {
-                found = true;
-                return { user: username, score: Math.max(newScore, entry.score) };
-            }
-            return entry;
-        });
-        if (!found) leaderboard.push({ user: username, score: newScore });
-        fetch(BIN_URL, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-                "X-Master-Key": API_KEY
-            },
-            body: JSON.stringify({ scores: leaderboard })
-        }).then(() => renderLeaderboard());
-    }
-
-    // ================
-    // === TETRIS SETUP
-    // ================
-    const canvas = document.getElementById('tetris');
-    const context = canvas.getContext('2d');
-
-    // === NEXT PIECE ===
+// NEXT PIECE
 const nextCanvas = document.getElementById('next');
 const nextCtx = nextCanvas.getContext('2d');
 let nextPieceType = null;
-
-// Nouvelle fonction pour dessiner la prochaine pièce
 function drawNextPiece() {
     nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
     if (player.hiddenCount && player.hiddenCount > 0) return;
     if (!nextPieceType) return;
     let matrix = createPiece(nextPieceType);
-    // Centrage auto
     let offsetX = Math.floor((4 - matrix[0].length) / 2);
     let offsetY = Math.floor((4 - matrix.length) / 2);
-
-    // Même effet néon que le jeu principal
     matrix.forEach((row, y) => row.forEach((value, x) => {
         if (value !== 0) {
             let {color, glow} = randomNeonColor(value + Math.floor(Math.random() * 3));
@@ -409,7 +374,6 @@ function drawNextPiece() {
             nextCtx.fillStyle = color;
             nextCtx.fillRect((x + offsetX) * 18, (y + offsetY) * 18, 18, 18);
             nextCtx.restore();
-            // Contour
             nextCtx.save();
             nextCtx.globalAlpha = 0.33;
             nextCtx.shadowBlur = 0;
@@ -421,156 +385,137 @@ function drawNextPiece() {
     }));
 }
 
-    
-    const COLS = 17, ROWS = 20;
-    let cellSize = 20;
-    function fitCanvas() {
-        let parentW = Math.min(window.innerWidth, 420);
-        cellSize = Math.floor(parentW / COLS);
-        canvas.width = COLS * cellSize;
-        canvas.height = ROWS * cellSize;
-        context.setTransform(1, 0, 0, 1, 0, 0);
-        context.scale(cellSize, cellSize);
-    }
-    fitCanvas();
-    window.addEventListener('resize', fitCanvas);
+const COLS = 17, ROWS = 20;
+let cellSize = 20;
+function fitCanvas() {
+    let parentW = Math.min(window.innerWidth, 420);
+    cellSize = Math.floor(parentW / COLS);
+    canvas.width = COLS * cellSize;
+    canvas.height = ROWS * cellSize;
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.scale(cellSize, cellSize);
+}
+fitCanvas();
+window.addEventListener('resize', fitCanvas);
 
-    const arena = createMatrix(COLS, ROWS);
-    const player = { pos: { x: 5, y: 0 }, matrix: null, score: 0, lines: 0, level: 1 };
-    const scoreDisplay = document.getElementById('score');
-    const linesDisplay = document.getElementById('lines');
-    const levelDisplay = document.getElementById('level');
-    const timerDisplay = document.getElementById('timer');
+const arena = createMatrix(COLS, ROWS);
+const player = { pos: { x: 5, y: 0 }, matrix: null, score: 0, lines: 0, level: 1 };
+const scoreDisplay = document.getElementById('score');
+const linesDisplay = document.getElementById('lines');
+const levelDisplay = document.getElementById('level');
+const timerDisplay = document.getElementById('timer');
 
-    let startTime = Date.now();
-    let dropInterval = 600;
-    let pieceBag = [];
+let startTime = Date.now();
+let dropInterval = 600;
+let pieceBag = [];
 
-    nextPieceType = randomPieceType(); // initialisation de la prochaine pièce
+nextPieceType = randomPieceType();
 
-    let paused = false, isGameOver = false, pauseStart = 0, pausedTime = 0;
+let paused = false, isGameOver = false, pauseStart = 0, pausedTime = 0;
 
-    function randomPieceType() {
-        if (pieceBag.length === 0) {
-            pieceBag = 'TOLJISZ'.split('');
-            for (let i = pieceBag.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [pieceBag[i], pieceBag[j]] = [pieceBag[j], pieceBag[i]];
-            }
-        }
-        return pieceBag.pop();
-    }
-
-    function restartGame() {
-        askUsername(true);
-        isGameOver = false;
-        paused = false;
-        pauseStart = 0;
-        pausedTime = 0;
-        document.getElementById('gameOverModal').style.display = "none";
-        arena.forEach(row => row.fill(0));
-        player.score = 0;
-        player.lines = 0;
-        player.level = 1;
-        dropInterval = Math.max(30, Math.floor(600 * Math.pow(0.75, player.level - 1)));
-        updateMusicSpeed();
-        playerReset();
-        updateScore();
-        startTime = Date.now();
-        updatePauseBar();
-    }
-
-    function updateMusicSpeed() {
-          const audio = document.getElementById('bgMusic');
-    audio.playbackRate = Math.min(2, 1 + (player.level - 1) * 0.17); // accélère plus vite
-    }
-
-    function updateTimer() {
-        if (isGameOver) return;
-        let now = Date.now();
-        const elapsed = Math.floor((now - startTime - pausedTime - (paused ? (now - pauseStart) : 0)) / 1000);
-        timerDisplay.textContent = `Temps: ${Math.max(0, elapsed)}s`;
-    }
-    setInterval(updateTimer, 1000);
-
-    function createMatrix(w, h) {
-        const matrix = [];
-        while (h--) matrix.push(new Array(w).fill(0));
-        return matrix;
-    }
-
-    function createPiece(type) {
-        switch (type) {
-            case 'T': return [[0,0,0],[1,1,1],[0,1,0]];
-            case 'O': return [[2,2],[2,2]];
-            case 'L': return [[0,3,0],[0,3,0],[0,3,3]];
-            case 'J': return [[0,4,0],[0,4,0],[4,4,0]];
-            case 'I': return [[0,5,0,0],[0,5,0,0],[0,5,0,0],[0,5,0,0]];
-            case 'S': return [[0,6,6],[6,6,0],[0,0,0]];
-            case 'Z': return [[7,7,0],[0,7,7],[0,0,0]];
+function randomPieceType() {
+    if (pieceBag.length === 0) {
+        pieceBag = 'TOLJISZ'.split('');
+        for (let i = pieceBag.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [pieceBag[i], pieceBag[j]] = [pieceBag[j], pieceBag[i]];
         }
     }
+    return pieceBag.pop();
+}
+function restartGame() {
+    askUsername(true);
+    isGameOver = false;
+    paused = false;
+    pauseStart = 0;
+    pausedTime = 0;
+    document.getElementById('gameOverModal').style.display = "none";
+    arena.forEach(row => row.fill(0));
+    player.score = 0;
+    player.lines = 0;
+    player.level = 1;
+    dropInterval = Math.max(30, Math.floor(600 * Math.pow(0.75, player.level - 1)));
+    updateMusicSpeed();
+    playerReset();
+    updateScore();
+    startTime = Date.now();
+    updatePauseBar();
+}
+function updateMusicSpeed() {
+    const audio = document.getElementById('bgMusic');
+    audio.playbackRate = Math.min(2, 1 + (player.level - 1) * 0.17);
+}
+function updateTimer() {
+    if (isGameOver) return;
+    let now = Date.now();
+    const elapsed = Math.floor((now - startTime - pausedTime - (paused ? (now - pauseStart) : 0)) / 1000);
+    timerDisplay.textContent = `Temps: ${Math.max(0, elapsed)}s`;
+}
+setInterval(updateTimer, 1000);
 
-  function randomEffect() {
-    // Si on a déjà placé un bonus/malus garanti ce niveau, ou utilisé 2 effets, comportement classique
+function createMatrix(w, h) {
+    const matrix = [];
+    while (h--) matrix.push(new Array(w).fill(0));
+    return matrix;
+}
+function createPiece(type) {
+    switch (type) {
+        case 'T': return [[0,0,0],[1,1,1],[0,1,0]];
+        case 'O': return [[2,2],[2,2]];
+        case 'L': return [[0,3,0],[0,3,0],[0,3,3]];
+        case 'J': return [[0,4,0],[0,4,0],[4,4,0]];
+        case 'I': return [[0,5,0,0],[0,5,0,0],[0,5,0,0],[0,5,0,0]];
+        case 'S': return [[0,6,6],[6,6,0],[0,0,0]];
+        case 'Z': return [[7,7,0],[0,7,7],[0,0,0]];
+    }
+}
+function randomEffect() {
     if (bonusUsedThisLevel >= 2) return null;
-
-    // Si on arrive à la 11ème pièce du niveau et aucun bonus/malus n'est sorti, on force
     if (!bonusGuaranteed && piecesPlayedThisLevel >= 11 && bonusUsedThisLevel < 1) {
         bonusGuaranteed = true;
         bonusUsedThisLevel++;
-        // Choix entre bonus/malus/speedup garanti
         let r = Math.random();
-    if (r < 0.06) return "bonus";
-    if (r < 0.08) return "explosion";
-    if (r < 0.11) return "slow";
-    if (r < 0.115) return "malus";
-    if (r < 0.14) return "inverted";
-    if (r < 0.145) return "hidden";
-    return "speedup";
+        if (r < 0.06) return "bonus";
+        if (r < 0.08) return "explosion";
+        if (r < 0.11) return "slow";
+        if (r < 0.115) return "malus";
+        if (r < 0.14) return "inverted";
+        if (r < 0.145) return "hidden";
+        return "speedup";
     }
-
-    // Sinon, on fait un tirage normal mais plus généreux (ex : 10% par pièce)
-  let r = Math.random();
-if (r < 0.15) { // 16% d'effet
-    bonusUsedThisLevel++;
-    if (r < 0.06) return "bonus";         // double score
-    if (r < 0.08) return "explosion";     // explosion
-    if (r < 0.11) return "slow";          // ralenti
-    if (r < 0.115) return "malus";         // demi-score
-    if (r < 0.14) return "inverted";     // inversion contrôles
-    if (r < 0.145) return "hidden";        // pièce cachée
-    return "speedup";                     // vitesse (rare)
+    let r = Math.random();
+    if (r < 0.15) {
+        bonusUsedThisLevel++;
+        if (r < 0.06) return "bonus";
+        if (r < 0.08) return "explosion";
+        if (r < 0.11) return "slow";
+        if (r < 0.115) return "malus";
+        if (r < 0.14) return "inverted";
+        if (r < 0.145) return "hidden";
+        return "speedup";
+    }
+    return null;
 }
-
-
-
-
-
-   function randomNeonColor(baseIdx) {
-    // Palette bleu/violet
+function randomNeonColor(baseIdx) {
     const palettes = [
-        {r: 75, g: 0, b: 130},   // indigo
-        {r: 106, g: 13, b: 173}, // violet néon
-        {r: 123, g: 104, b: 238},// medium slate blue
-        {r: 138, g: 43, b: 226}, // blue violet
-        {r: 0, g: 191, b: 255},  // deep sky blue
-        {r: 30, g: 144, b: 255}, // dodger blue
-        {r: 65, g: 105, b: 225}, // royal blue
-        {r: 70, g: 130, b: 180}, // steel blue
-        {r: 111, g: 60, b: 180}  // bleu/violet intermédiaire
+        {r: 75, g: 0, b: 130},
+        {r: 106, g: 13, b: 173},
+        {r: 123, g: 104, b: 238},
+        {r: 138, g: 43, b: 226},
+        {r: 0, g: 191, b: 255},
+        {r: 30, g: 144, b: 255},
+        {r: 65, g: 105, b: 225},
+        {r: 70, g: 130, b: 180},
+        {r: 111, g: 60, b: 180}
     ];
     let base = palettes[baseIdx % palettes.length];
     let vr = Math.floor(Math.random() * 36) - 18;
     let vg = Math.floor(Math.random() * 30) - 15;
     let vb = Math.floor(Math.random() * 36) - 18;
-    // La couleur principale
     let color = `rgba(${Math.max(0,Math.min(255,base.r+vr))},${Math.max(0,Math.min(255,base.g+vg))},${Math.max(0,Math.min(255,base.b+vb))},0.70)`;
-    // Le glow doit être bien vif (on ne met pas d'alpha)
     let glow = `rgba(${Math.max(0,Math.min(255,base.r+vr))},${Math.max(0,Math.min(255,base.g+vg))},${Math.max(0,Math.min(255,base.b+vb))},1)`;
     return {color, glow};
 }
-
 function drawMatrix(matrix, offset) {
     if (!drawMatrix.colorMap) drawMatrix.colorMap = {};
     let effect = player.effect;
@@ -607,7 +552,6 @@ function drawMatrix(matrix, offset) {
             context.fillStyle = baseColor;
             context.fillRect(x + offset.x, y + offset.y, 1, 1);
             context.restore();
-            // Contour
             context.save();
             context.globalAlpha = 0.33;
             context.shadowBlur = 0;
@@ -618,50 +562,43 @@ function drawMatrix(matrix, offset) {
         }
     }));
 }
-
-
-
-
-    function merge(arena, player) {
-        player.matrix.forEach((row, y) => row.forEach((value, x) => {
-            if (value !== 0) arena[y + player.pos.y][x + player.pos.x] = value;
-        }));
-    }
-
-    function collide(arena, player) {
-        const m = player.matrix;
-        const o = player.pos;
-        for (let y = 0; y < m.length; ++y) {
-            for (let x = 0; x < m[y].length; ++x) {
-                if (m[y][x] !== 0) {
-                    if (o.x + x < 0 || o.x + x >= arena[0].length || o.y + y >= arena.length) {
-                        return true;
-                    }
-                    if (arena[o.y + y] && arena[o.y + y][o.x + x] !== 0) {
-                        return true;
-                    }
+function merge(arena, player) {
+    player.matrix.forEach((row, y) => row.forEach((value, x) => {
+        if (value !== 0) arena[y + player.pos.y][x + player.pos.x] = value;
+    }));
+}
+function collide(arena, player) {
+    const m = player.matrix;
+    const o = player.pos;
+    for (let y = 0; y < m.length; ++y) {
+        for (let x = 0; x < m[y].length; ++x) {
+            if (m[y][x] !== 0) {
+                if (o.x + x < 0 || o.x + x >= arena[0].length || o.y + y >= arena.length) {
+                    return true;
+                }
+                if (arena[o.y + y] && arena[o.y + y][o.x + x] !== 0) {
+                    return true;
                 }
             }
         }
-        return false;
     }
-
-
- function playerDrop() {
+    return false;
+}
+function playerDrop() {
     if (paused || isGameOver) return;
     player.pos.y++;
     if (collide(arena, player)) {
         player.pos.y--;
         merge(arena, player);
         if (player.explodeNext) {
-    arena.pop(); // retire la dernière ligne
-    arena.unshift(new Array(COLS).fill(0)); // ajoute une ligne vide en haut
-    playSound('soundLevelUp'); // ou autre bruit d’explosion à custom
-    player.explodeNext = false;
-    showBonusMsg('💥 Ligne détruite !', '#ffbb00');
-}
-        playSound('soundDrop'); // <-- On joue le son drop ici !
-        arenaSweep();           // <-- On appelle la fonction qui gère les clears (en dehors)
+            arena.pop();
+            arena.unshift(new Array(COLS).fill(0));
+            playSound('soundLevelUp');
+            player.explodeNext = false;
+            showBonusMsg('💥 Ligne détruite !', '#ffbb00');
+        }
+        playSound('soundDrop');
+        arenaSweep();
         let prev = leaderboard.find(entry => entry.user === username);
         if (!prev || player.score > prev.score) {
             updateLeaderboard(player.score);
@@ -671,8 +608,7 @@ function drawMatrix(matrix, offset) {
     }
     dropCounter = 0;
 }
-
-    function arenaSweep() {
+function arenaSweep() {
     let rowCount = 1;
     let linesCleared = 0;
     outer: for (let y = arena.length - 1; y >= 0; y--) {
@@ -683,8 +619,6 @@ function drawMatrix(matrix, offset) {
         arena.unshift(row);
         y++;
         let gain = rowCount * 100;
-
-        // BONUS/MALUS gestion
         if (player.effect === "bonus") {
             gain *= 2;
             showBonusMsg('★ BONUS ! x2', '#fff700');
@@ -692,14 +626,13 @@ function drawMatrix(matrix, offset) {
             gain = Math.floor(gain * 0.5);
             showBonusMsg('Malus : x0.5', '#ff3366');
         }
-
         player.score += gain;
         player.lines++;
         linesCleared++;
         if (player.lines % 6 === 0) {
             player.level++;
-            bonusUsedThisLevel = 0;         // Remise à zéro à chaque level up
-            piecesPlayedThisLevel = 0;      // Remise à zéro aussi
+            bonusUsedThisLevel = 0;
+            piecesPlayedThisLevel = 0;
             bonusGuaranteed = false;
             dropInterval = Math.max(50, dropInterval - 50);
             updateMusicSpeed();
@@ -710,17 +643,14 @@ function drawMatrix(matrix, offset) {
     }
     if (linesCleared > 0) playSound('soundClear');
 }
-
-
 function playerReset() {
     piecesPlayedThisLevel++;
-    player.matrix = createPiece(nextPieceType); // la pièce suivante devient active
-    nextPieceType = randomPieceType();          // on prépare la future
-    drawNextPiece();                            // on affiche dans le mini-canvas
+    player.matrix = createPiece(nextPieceType);
+    nextPieceType = randomPieceType();
+    drawNextPiece();
     player.pos.y = 0;
     player.pos.x = (arena[0].length / 2 | 0) - (player.matrix[0].length / 2 | 0);
-
-    // --- 1. Décrémentation et FIN des effets (F) ---
+    // FIN effets
     if (player.slowCount && player.slowCount > 0) {
         player.slowCount--;
         if (player.slowCount === 0) {
@@ -735,7 +665,7 @@ function playerReset() {
             showBonusMsg('Fin accélération', '#0099ff');
         }
     }
-    if (player.invertedCount && player.invertedCount > 0) {
+       if (player.invertedCount && player.invertedCount > 0) {
         player.invertedCount--;
         if (player.invertedCount === 0) {
             showBonusMsg('Contrôles normaux', '#8ecfff');
@@ -748,7 +678,7 @@ function playerReset() {
         }
     }
 
-    // --- 2. Activation d'un NOUVEL effet (B) ---
+    // Activation d’un nouvel effet
     player.effect = randomEffect();
 
     if (player.effect === "explosion") {
@@ -774,43 +704,40 @@ function playerReset() {
         showBonusMsg('❓ Pièce cachée !', '#ffffff');
     }
 
-    // --- 3. Game over si collision ---
+    // Game over si collision directe
     if (collide(arena, player)) {
         isGameOver = true;
         showGameOver();
     }
 }
 
+function updateScore() {
+    scoreDisplay.textContent = `Score: ${player.score}`;
+    linesDisplay.textContent = `Lignes: ${player.lines}`;
+    levelDisplay.textContent = `Niveau: ${player.level}`;
+}
 
+function rotate(matrix, dir = 1) {
+    for (let y = 0; y < matrix.length; ++y)
+        for (let x = 0; x < y; ++x)
+            [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
+    dir > 0 ? matrix.forEach(row => row.reverse()) : matrix.reverse();
+}
 
+function showLevelUp(level) {
+    let overlay = document.getElementById("levelUpOverlay");
+    let text = document.getElementById("levelUpText");
+    overlay.style.display = "flex";
+    text.textContent = `⟫ Niveau ${level} ! ⟪`;
+    text.style.animation = "none";
+    void text.offsetWidth;
+    text.style.animation = null;
+    setTimeout(() => {
+        overlay.style.display = "none";
+    }, 1000);
+}
 
-    function updateScore() {
-        scoreDisplay.textContent = `Score: ${player.score}`;
-        linesDisplay.textContent = `Lignes: ${player.lines}`;
-        levelDisplay.textContent = `Niveau: ${player.level}`;
-    }
-
-    function rotate(matrix, dir = 1) {
-        for (let y = 0; y < matrix.length; ++y)
-            for (let x = 0; x < y; ++x)
-                [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
-        dir > 0 ? matrix.forEach(row => row.reverse()) : matrix.reverse();
-    }
-
-    function showLevelUp(level) {
-        let overlay = document.getElementById("levelUpOverlay");
-        let text = document.getElementById("levelUpText");
-        overlay.style.display = "flex";
-        text.textContent = `⟫ Niveau ${level} ! ⟪`;
-        text.style.animation = "none";
-        void text.offsetWidth;
-        text.style.animation = null;
-        setTimeout(() => {
-            overlay.style.display = "none";
-        }, 1000);
-    }
-
-    function showBonusMsg(txt, color) {
+function showBonusMsg(txt, color) {
     let overlay = document.getElementById("levelUpOverlay");
     let text = document.getElementById("levelUpText");
     overlay.style.display = "flex";
@@ -827,23 +754,20 @@ function playerReset() {
     }, 1200);
 }
 
-    function showGameOver() {
-        document.getElementById('gameOverModal').style.display = "flex";
-        document.getElementById('goScore').textContent = `Ton score : ${player.score}`;
-    }
-    function closeGameOver() {
-        document.getElementById('gameOverModal').style.display = "none";
-        restartGame();
-    }
+function showGameOver() {
+    document.getElementById('gameOverModal').style.display = "flex";
+    document.getElementById('goScore').textContent = `Ton score : ${player.score}`;
+}
+function closeGameOver() {
+    document.getElementById('gameOverModal').style.display = "none";
+    restartGame();
+}
 
-    // ======================
-    // === CONTROLES CLAVIER / MOBILE
-    // ======================
-   document.addEventListener('keydown', event => {
+// === CONTROLES CLAVIER
+document.addEventListener('keydown', event => {
     if (isGameOver) return;
     if (event.key === 'ArrowLeft') {
         if (player.invertedCount && player.invertedCount > 0) {
-            // Inversé = droite !
             player.pos.x++;
             if (collide(arena, player)) player.pos.x--;
         } else {
@@ -852,20 +776,15 @@ function playerReset() {
         }
     } else if (event.key === 'ArrowRight') {
         if (player.invertedCount && player.invertedCount > 0) {
-            // Inversé = gauche !
             player.pos.x--;
             if (collide(arena, player)) player.pos.x++;
         } else {
             player.pos.x++;
             if (collide(arena, player)) player.pos.x--;
         }
-    }
-    
-});
-
     } else if (event.key === 'ArrowDown') {
         playerDrop();
-        event.preventDefault(); // Empêche le scroll de la page !
+        event.preventDefault();
     } else if (event.key === ' ') {
         rotate(player.matrix);
         if (collide(arena, player)) {
@@ -873,92 +792,82 @@ function playerReset() {
             if (collide(arena, player)) player.pos.x -= 2;
             if (collide(arena, player)) rotate(player.matrix, -1);
         }
-        event.preventDefault(); // Empêche le scroll, si besoin.
+        event.preventDefault();
     } else if (event.key.toLowerCase() === 'p') {
         togglePause();
     }
 });
 
-    function updatePauseBar() {
-        let pauseBar = document.getElementById('pauseBar');
-        pauseBar.textContent = paused ? "▶️ Reprendre" : "⏸ Pause";
-        pauseBar.className = paused ? "paused" : "";
+function updatePauseBar() {
+    let pauseBar = document.getElementById('pauseBar');
+    pauseBar.textContent = paused ? "▶️ Reprendre" : "⏸ Pause";
+    pauseBar.className = paused ? "paused" : "";
+}
+
+function togglePause() {
+    if (isGameOver) return;
+    const audio = document.getElementById('bgMusic');
+    paused = !paused;
+    if (paused) {
+        pauseStart = Date.now();
+        audio.pause();
+    } else {
+        pausedTime += Date.now() - pauseStart;
+        audio.play().catch(()=>{});
     }
-
-    function togglePause() {
-        if (isGameOver) return;
-        const audio = document.getElementById('bgMusic');
-        paused = !paused;
-        if (paused) {
-            pauseStart = Date.now();
-            audio.pause();
-        } else {
-            pausedTime += Date.now() - pauseStart;
-            audio.play().catch(()=>{});
-        }
-        updatePauseBar();
-    }
-
-    // ======================
-    // === TOUCH/MOBILE CONTROLS
-    // ======================
-    function setupTouchControls() {
-        // Affiche les boutons si petit écran
-        if(window.innerWidth < 650) {
-            document.getElementById('controls').style.display = "block";
-        } else {
-            document.getElementById('controls').style.display = "none";
-        }
-        // Event listeners pour les boutons
-        document.getElementById('btnLeft').onclick = () => { if(!paused && !isGameOver){ player.pos.x--; if (collide(arena, player)) player.pos.x++; }};
-        document.getElementById('btnRight').onclick = () => { if(!paused && !isGameOver){ player.pos.x++; if (collide(arena, player)) player.pos.x--; }};
-        document.getElementById('btnDown').onclick = () => { if(!paused && !isGameOver){ playerDrop(); }};
-        document.getElementById('btnRotate').onclick = () => { if(!paused && !isGameOver){ rotate(player.matrix); if (collide(arena, player)) rotate(player.matrix, -1); }};
-        document.getElementById('pauseBtn').onclick = togglePause;
-    }
-    window.addEventListener('resize', setupTouchControls);
-
-    // ======================
-    // === MUSIQUE / AUTO-UNLOCK
-    // ======================
-    document.addEventListener('click', () => {
-        const audio = document.getElementById('bgMusic');
-        if (audio.paused) {
-            audio.play().catch(e => {});
-        }
-    }, { once: true });
-
-    // ======================
-    // === GAME LOOP
-    // ======================
-    let dropCounter = 0, lastTime = 0;
-    function update(time = 0) {
-        if (!paused && !isGameOver) {
-            const deltaTime = time - lastTime;
-            lastTime = time;
-            dropCounter += deltaTime;
-            if (dropCounter > dropInterval) playerDrop();
-        } else {
-            lastTime = time;
-        }
-        context.fillStyle = '#111122';
-        context.fillRect(0, 0, COLS, ROWS);
-        drawMatrix(arena, { x: 0, y: 0 });
-        if (player.matrix) drawMatrix(player.matrix, player.pos);
-        requestAnimationFrame(update);
-    }
-
-    fetchLeaderboard();
-    playerReset();
-    drawNextPiece();
-    updateScore();
     updatePauseBar();
-    setupTouchControls();
-    update();
+}
 
-   // ======================
-// === TOUCH/SWIPE CONTROL (SMARTPHONE) ULTRA FLUIDE
-// ======================
+// === TOUCH/MOBILE CONTROLS
+function setupTouchControls() {
+    if(window.innerWidth < 650) {
+        document.getElementById('controls').style.display = "block";
+    } else {
+        document.getElementById('controls').style.display = "none";
+    }
+    document.getElementById('btnLeft').onclick = () => { if(!paused && !isGameOver){ player.pos.x--; if (collide(arena, player)) player.pos.x++; }};
+    document.getElementById('btnRight').onclick = () => { if(!paused && !isGameOver){ player.pos.x++; if (collide(arena, player)) player.pos.x--; }};
+    document.getElementById('btnDown').onclick = () => { if(!paused && !isGameOver){ playerDrop(); }};
+    document.getElementById('btnRotate').onclick = () => { if(!paused && !isGameOver){ rotate(player.matrix); if (collide(arena, player)) rotate(player.matrix, -1); }};
+    document.getElementById('pauseBtn').onclick = togglePause;
+}
+window.addEventListener('resize', setupTouchControls);
+
+// MUSIQUE / AUTO-UNLOCK
+document.addEventListener('click', () => {
+    const audio = document.getElementById('bgMusic');
+    if (audio.paused) {
+        audio.play().catch(e => {});
+    }
+}, { once: true });
+
+// GAME LOOP
+let dropCounter = 0, lastTime = 0;
+function update(time = 0) {
+    if (!paused && !isGameOver) {
+        const deltaTime = time - lastTime;
+        lastTime = time;
+        dropCounter += deltaTime;
+        if (dropCounter > dropInterval) playerDrop();
+    } else {
+        lastTime = time;
+    }
+    context.fillStyle = '#111122';
+    context.fillRect(0, 0, COLS, ROWS);
+    drawMatrix(arena, { x: 0, y: 0 });
+    if (player.matrix) drawMatrix(player.matrix, player.pos);
+    requestAnimationFrame(update);
+}
+
+fetchLeaderboard();
+playerReset();
+drawNextPiece();
+updateScore();
+updatePauseBar();
+setupTouchControls();
+update();
+
+// === TOUCH/SWIPE CONTROL (SMARTPHONE)
 function isTouchDevice() {
     return ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 }
@@ -972,9 +881,8 @@ if (isTouchDevice()) {
     let moved = false, swipeHandled = false;
     let touchStartTime = null;
     let lastDir = null;
-    const minSwipeDist = 18; // px, + petit = + réactif
-    const moveRepeatDelay = 80; // ms entre deux moves continus
-
+    const minSwipeDist = 18;
+    const moveRepeatDelay = 80;
     let lastMoveTime = 0;
 
     canvas.addEventListener('touchstart', function(e) {
@@ -1000,42 +908,36 @@ if (isTouchDevice()) {
         const dxTot = t.clientX - touchStartX;
         const dyTot = t.clientY - touchStartY;
 
-        // Déplacement horizontal continu
         if (Math.abs(dxTot) > Math.abs(dyTot) && Math.abs(dxTot) > minSwipeDist) {
             if (Date.now() - lastMoveTime > moveRepeatDelay) {
                 if (player.invertedCount && player.invertedCount > 0) {
-    // Inversé : swipe droite = gauche et inversement
-    if (dxTot > 0) {
-        player.pos.x--;
-        if (collide(arena, player)) player.pos.x++;
-    } else {
-        player.pos.x++;
-        if (collide(arena, player)) player.pos.x--;
-    }
-} else {
-    if (dxTot > 0) {
-        player.pos.x++;
-        if (collide(arena, player)) player.pos.x--;
-    } else {
-        player.pos.x--;
-        if (collide(arena, player)) player.pos.x++;
-    }
-}
-                    lastDir = 'left';
+                    if (dxTot > 0) {
+                        player.pos.x--;
+                        if (collide(arena, player)) player.pos.x++;
+                    } else {
+                        player.pos.x++;
+                        if (collide(arena, player)) player.pos.x--;
+                    }
+                } else {
+                    if (dxTot > 0) {
+                        player.pos.x++;
+                        if (collide(arena, player)) player.pos.x--;
+                    } else {
+                        player.pos.x--;
+                        if (collide(arena, player)) player.pos.x++;
+                    }
                 }
+                lastDir = 'left';
                 lastMoveTime = Date.now();
                 moved = true;
             }
         }
-        // Déplacement vertical
         else if (Math.abs(dyTot) > minSwipeDist && Math.abs(dyTot) > Math.abs(dxTot)) {
-            // Drop rapide si swipe rapide (vitesse > 1px/ms)
             const swipeSpeed = Math.abs(dyTot) / (Date.now() - touchStartTime + 1);
             if (!swipeHandled && dyTot > 0 && swipeSpeed > 0.8) {
-                playerDrop(); // hard drop
+                playerDrop();
                 swipeHandled = true;
             }
-            // Sinon descente continue
             else if (dyTot > 0 && Date.now() - lastMoveTime > moveRepeatDelay) {
                 player.pos.y++;
                 if (collide(arena, player)) player.pos.y--;
@@ -1050,7 +952,6 @@ if (isTouchDevice()) {
 
     canvas.addEventListener('touchend', function(e) {
         if (isGameOver || paused) return;
-        // Si pas de swipe et tap court = rotation
         if (!moved && Date.now() - touchStartTime < 250) {
             rotate(player.matrix);
             if (collide(arena, player)) {
@@ -1065,13 +966,11 @@ if (isTouchDevice()) {
         lastDir = null;
     });
 
-    // Bloque scroll pendant le jeu
     canvas.addEventListener('touchmove', function(e) {
         e.preventDefault();
     }, { passive: false });
 }
-
-
 </script>
 </body>
 </html>
+
