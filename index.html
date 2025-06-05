@@ -502,38 +502,6 @@ function drawMatrix(matrix, offset) {
         return false;
     }
 
-    function arenaSweep() {
-        let rowCount = 1;
-        outer: for (let y = arena.length - 1; y >= 0; y--) {
-            for (let x = 0; x < arena[y].length; x++) {
-                if (arena[y][x] === 0) continue outer;
-            }
-            const row = arena.splice(y, 1)[0].fill(0);
-            arena.unshift(row);
-            y++;
-           let gain = rowCount * 100;
-if (player.effect === "bonus") {
-    gain *= 2;
-    showBonusMsg('★ BONUS ! x2', '#fff700');
-} else if (player.effect === "malus") {
-    gain = Math.floor(gain * 0.5);
-    showBonusMsg('Malus : x0.5', '#ff3366');
-}
-player.score += gain;
-
-            player.lines++;
-            if (player.lines % 6 === 0) {
-                player.level++;
-                bonusUsedThisLevel = 0;         // <---- Remise à zéro à chaque level up
-                piecesPlayedThisLevel = 0;      // <---- Remise à zéro aussi
-                bonusGuaranteed = false;
-                dropInterval = Math.max(50, dropInterval - 50);
-                updateMusicSpeed();
-                showLevelUp(player.level);
-            }
-            rowCount *= 2;
-        }
-    }
 
  function playerDrop() {
     if (paused || isGameOver) return;
@@ -563,16 +531,29 @@ player.score += gain;
         const row = arena.splice(y, 1)[0].fill(0);
         arena.unshift(row);
         y++;
-        player.score += rowCount * 100;
+        let gain = rowCount * 100;
+
+        // BONUS/MALUS gestion
+        if (player.effect === "bonus") {
+            gain *= 2;
+            showBonusMsg('★ BONUS ! x2', '#fff700');
+        } else if (player.effect === "malus") {
+            gain = Math.floor(gain * 0.5);
+            showBonusMsg('Malus : x0.5', '#ff3366');
+        }
+
+        player.score += gain;
         player.lines++;
         linesCleared++;
         if (player.lines % 6 === 0) {
             player.level++;
-            dropInterval = Math.max(30, Math.floor(600 * Math.pow(0.75, player.level - 1)));
+            bonusUsedThisLevel = 0;         // Remise à zéro à chaque level up
+            piecesPlayedThisLevel = 0;      // Remise à zéro aussi
+            bonusGuaranteed = false;
+            dropInterval = Math.max(50, dropInterval - 50);
             updateMusicSpeed();
             showLevelUp(player.level);
             playSound('soundLevelUp');
-
         }
         rowCount *= 2;
     }
