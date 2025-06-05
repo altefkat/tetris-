@@ -390,12 +390,14 @@ document.addEventListener('touchstart', unlockAudio, {once: true});
     }
 
     let r = Math.random();
-if (r < 0.08) { // 8% de chances d'effet par pièce
+if (r < 0.09) { // 8% d'effet total
     bonusUsedThisLevel++;
     if (r < 0.04) return "bonus";     // 4%
-    if (r < 0.07) return "malus";     // 3% (de 4 à 7)
-    return "speedup";                 // 1% (de 7 à 8)
+    if (r < 0.07) return "malus";     // 3%
+    return "speedup";                 // 1%
 }
+return null;
+
 
     return null;
 }
@@ -580,11 +582,12 @@ function drawMatrix(matrix, offset) {
     // 2. Sinon, on tire un nouvel effet
     else {
         player.effect = randomEffect();
-        if (player.effect === "speedup") {
-            player.speedupCount = 5;
-            dropInterval = Math.max(40, dropInterval * 0.6);
-            showBonusMsg('⚡ Accélération !', '#ff3366');
-        }
+       if (player.effect === "sif (player.effect === "speedup") {
+    player.speedupCount = 3; // ← seulement 3 pièces accélérées
+    dropInterval = Math.max(40, dropInterval * 0.6);
+    showBonusMsg('⚡ Accélération !', '#ff3366');
+}
+
     }
 
     if (collide(arena, player)) {
