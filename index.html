@@ -162,6 +162,12 @@
         <button class="ctrl-btn" id="btnDown">⬇️</button>
         <button class="ctrl-btn" id="pauseBtn" onclick="togglePause()">⏸</button>
     </div>
+    
+    <div style="margin:10px 0;">
+    <button id="muteMusicBtn" style="font-size: 1.2rem; border-radius:8px;">🔊 Musique</button>
+    <button id="muteSfxBtn" style="font-size: 1.2rem; border-radius:8px;">🔔 Effets</button>
+</div>
+
     <canvas id="tetris"></canvas>
     <div id="leaderboard">
         <b>Leaderboard mondial</b>
@@ -218,6 +224,42 @@ function unlockAudio() {
 }
 document.addEventListener('keydown', unlockAudio, {once: true});
 document.addEventListener('touchstart', unlockAudio, {once: true});
+
+
+    // === GESTION MUTE MUSIQUE & SONS ===
+const bgMusic = document.getElementById('bgMusic');
+const soundDrop = document.getElementById('soundDrop');
+const soundClear = document.getElementById('soundClear');
+const soundLevelUp = document.getElementById('soundLevelUp');
+
+function setMuteState() {
+    const musicMuted = localStorage.getItem('musicMuted') === "1";
+    const sfxMuted = localStorage.getItem('sfxMuted') === "1";
+    bgMusic.muted = musicMuted;
+    soundDrop.muted = sfxMuted;
+    soundClear.muted = sfxMuted;
+    soundLevelUp.muted = sfxMuted;
+    // Affichage boutons
+    document.getElementById('muteMusicBtn').textContent = musicMuted ? "🔇 Musique" : "🔊 Musique";
+    document.getElementById('muteSfxBtn').textContent = sfxMuted ? "🔕 Effets" : "🔔 Effets";
+}
+
+// Bouton musique
+document.getElementById('muteMusicBtn').onclick = function() {
+    const musicMuted = bgMusic.muted = !bgMusic.muted;
+    localStorage.setItem('musicMuted', musicMuted ? "1" : "0");
+    setMuteState();
+};
+// Bouton effets
+document.getElementById('muteSfxBtn').onclick = function() {
+    const sfxMuted = !soundDrop.muted;
+    soundDrop.muted = soundClear.muted = soundLevelUp.muted = sfxMuted;
+    localStorage.setItem('sfxMuted', sfxMuted ? "1" : "0");
+    setMuteState();
+};
+
+// Applique l’état au démarrage
+setMuteState();
 
 
     
