@@ -333,7 +333,7 @@ document.addEventListener('touchstart', unlockAudio, {once: true});
         player.score = 0;
         player.lines = 0;
         player.level = 1;
-        dropInterval = 600;
+        dropInterval = Math.max(30, Math.floor(600 * Math.pow(0.75, player.level - 1)));
         updateMusicSpeed();
         playerReset();
         updateScore();
@@ -550,7 +550,7 @@ player.score += gain;
         linesCleared++;
         if (player.lines % 6 === 0) {
             player.level++;
-            dropInterval = Math.max(50, dropInterval - 50);
+            dropInterval = Math.max(30, Math.floor(600 * Math.pow(0.75, player.level - 1)));
             updateMusicSpeed();
             showLevelUp(player.level);
             playSound('soundLevelUp');
@@ -572,7 +572,7 @@ if (player.speedupCount !== undefined) {
     player.speedupCount--;
     if (player.speedupCount <= 0) {
         player.speedupCount = undefined;
-        dropInterval = Math.max(50, 600 - (player.level-1) * 50);
+        dropInterval = Math.max(30, Math.floor(600 * Math.pow(0.75, player.level - 1)));
         showBonusMsg('Fin accélération', '#0099ff');
     }
 }
