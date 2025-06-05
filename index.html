@@ -393,8 +393,8 @@ document.addEventListener('touchstart', unlockAudio, {once: true});
     let r = Math.random();
     if (r < 0.10) {
         bonusUsedThisLevel++;
-        if (r < 0.04) return "bonus";
-        if (r < 0.07) return "malus";
+        if (r < 0.05) return "bonus";
+        if (r < 0.05) return "malus";
         return "speedup";
     }
     return null;
@@ -581,7 +581,7 @@ function drawMatrix(matrix, offset) {
     else {
         player.effect = randomEffect();
         if (player.effect === "speedup") {
-            player.speedupCount = 10;
+            player.speedupCount = 4;
             dropInterval = Math.max(40, dropInterval * 0.6);
             showBonusMsg('⚡ Accélération !', '#ff3366');
         }
