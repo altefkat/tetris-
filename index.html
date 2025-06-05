@@ -183,7 +183,9 @@
 </div>
 <script>
 
+    let piecesPlayedThisLevel = 0;
     let bonusUsedThisLevel = 0;
+    let bonusGuaranteed = false;
         
     function playSound(id) {
     const audio = document.getElementById(id);
@@ -373,17 +375,31 @@ document.addEventListener('touchstart', unlockAudio, {once: true});
     }
 
   function randomEffect() {
-    // Limite à 2 bonus/malus par niveau
+    // Si on a déjà placé un bonus/malus garanti ce niveau, ou utilisé 2 effets, comportement classique
     if (bonusUsedThisLevel >= 2) return null;
-    let r = Math.random();
-    if (r < 0.07) { // 7% de chance par pièce (environ 1-2 par 20 pièces, ajustable)
+
+    // Si on arrive à la 11ème pièce du niveau et aucun bonus/malus n'est sorti, on force
+    if (!bonusGuaranteed && piecesPlayedThisLevel >= 11 && bonusUsedThisLevel < 1) {
+        bonusGuaranteed = true;
         bonusUsedThisLevel++;
-        if (r < 0.025) return "bonus";
-        if (r < 0.045) return "malus";
+        // Choix entre bonus/malus/speedup garanti
+        let r = Math.random();
+        if (r < 0.4) return "bonus";
+        if (r < 0.7) return "malus";
+        return "speedup";
+    }
+
+    // Sinon, on fait un tirage normal mais plus généreux (ex : 10% par pièce)
+    let r = Math.random();
+    if (r < 0.10) {
+        bonusUsedThisLevel++;
+        if (r < 0.04) return "bonus";
+        if (r < 0.07) return "malus";
         return "speedup";
     }
     return null;
 }
+
 
 
 
@@ -508,7 +524,9 @@ player.score += gain;
             player.lines++;
             if (player.lines % 6 === 0) {
                 player.level++;
-                bonusUsedThisLevel = 0;
+                bonusUsedThisLevel = 0;         // <---- Remise à zéro à chaque level up
+                piecesPlayedThisLevel = 0;      // <---- Remise à zéro aussi
+                bonusGuaranteed = false;
                 dropInterval = Math.max(50, dropInterval - 50);
                 updateMusicSpeed();
                 showLevelUp(player.level);
@@ -563,6 +581,7 @@ player.score += gain;
 
 
  function playerReset() {
+    piecesPlayedThisLevel++; 
     player.matrix = createPiece(randomPieceType());
     player.pos.y = 0;
     player.pos.x = (arena[0].length / 2 | 0) - (player.matrix[0].length / 2 | 0);
