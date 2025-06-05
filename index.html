@@ -427,16 +427,16 @@ setMuteState();
         // Choix entre bonus/malus/speedup garanti
         let r = Math.random();
         if (r < 0.4) return "bonus";
-        if (r < 0.7) return "malus";
+        if (r < 0.6) return "malus";
         return "speedup";
     }
 
     // Sinon, on fait un tirage normal mais plus généreux (ex : 10% par pièce)
     let r = Math.random();
-    if (r < 0.10) {
+    if (r < 0.11) {
         bonusUsedThisLevel++;
-        if (r < 0.05) return "bonus";
-        if (r < 0.05) return "malus";
+        if (r < 0.04) return "bonus";
+        if (r < 0.06) return "malus";
         return "speedup";
     }
     return null;
